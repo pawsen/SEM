@@ -9,6 +9,7 @@
 class FEMclass{
 private:
   void tot_nodes();
+  void set_gll(double*, double*, int);
 public:
   /* Number of element in axis direction */
   int nelx,nely,nelz;
@@ -36,12 +37,8 @@ public:
   int N0(int elx,int ely, int elz) {
     return elx*(ngll-1) + ely*(ngll-1)*nnx + elz*(ngll-1)*nnx*nny;}
 
-  /*  Ndof */
-  /* (i,j,k) -> (i+j*NNX+k*NNX*NNY)*3+[0 1 2] */
-  /* return an array? */
-  /* int *ndof_p = new int[3]; */
-  /* int *ndof(int i,int j, int k); */
-  /* ndof = @(i,j,k) (i+j*NNX+k*NNX*NNY)*3+[0 1 2]; */
+  /* gll points and weight */
+  double *gll, *w;
 };
 
 class MATPROPclass{

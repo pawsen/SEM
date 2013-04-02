@@ -8,16 +8,16 @@ ifeq ($(par),1)
 else
  # Serial
 	CC = g++
-	SRCS = SEM_serial.cpp fedata.cpp
+	SRCS = SEM_serial.cpp fedata.cpp vtk.cpp
 	PROJECT= SEM_s
 endif
 
 objects = $(patsubst %.cpp, %.o,$(SRCS))
 
 LINKFLAGS=
-LIBS=
-CFLAGS= -Wno-write-strings -g
-INCLUDE =
+LIBS= -lvtkCommon -lvtkIO -lvtkFiltering
+CFLAGS= -Wno-deprecated -g
+INCLUDE = -I/usr/include/vtk-5.8
 
 
 .PHONY: all
@@ -33,7 +33,7 @@ ${PROJECT}: $(objects)
 
 
 %.o: %.cpp
-	$(CC) $(CFLAGS) -c $< -o $@
+	$(CC) $(INCLUDE) $(CFLAGS) -c $< -o $@
 
 
 # special rule for the file containing exodus_ref

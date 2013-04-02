@@ -14,15 +14,23 @@
 #include <string.h> /* for memset */
 #include <math.h>
 #include "fedata.h"
+#include "vtk.h"
+
 #include <iostream>
 using namespace std;
 
 /* Force function */
 double ricker(double t, double f0, double to);
 
+/* Set nodal force */
+void NodalForce(double* F, int node, int dof, double val);
+
 int main(){
 
-  /* Initialize mesh and material */
+  /****************************************/
+  /* STEP 1: Initialize mesh and material */
+  /****************************************/
+
   FEMclass mesh(5,5,5,1,1,1,3);
   MATPROPclass mat(1,1,1,1);
 
@@ -33,6 +41,7 @@ int main(){
   double Me[sizeKe];
   memset(KKe,0,sizeof(KKe));
   memset(Me,0,sizeof(Me));
+  
   // NOTE Henrik: Vær forsigtig med at bruge sizeof(KKe). Det duer kun her fordi
   // KKe virkelig er et array. Hvis den fx. blev overført til en funktion,
   // skulle man nok skrive sizeof(KKe[0])*sizeKe*sizeKe.
@@ -43,18 +52,24 @@ int main(){
      apply-macro-to-region-lines*/
   /* THIS is WHACK, HACK and not good practice. But... */
   /* And remember the file must NOT be included as a source file! */
+
   double lx=mesh.lx, ly=mesh.ly, lz=mesh.lz;
   double E=mat.e,nu=mat.nu;
 #include "Me3.c"
 #include "Ke3.c"
 
 
+  /**************************/
+  /* STEP 2: INITIALIZATION */
+  /**************************/
+
   /* Time stepping */
   int NT = 1000;
   int ii;
+
   /* Force function. Gauss like: Mexican hat */
   double Ff0 = 0.25;            /* fundamental frequency */
-  double Ft0 = 1.5/Ff0;         /* delay */
+  double Ft0 = 1.5/Ff0;
   double Ft;
 
   /* ############################################ */
@@ -72,21 +87,41 @@ int main(){
   /* Global elements first node(N0). Used to calculate rest of elements nodes*/
   double No, node;
   int edof[sizeKe];
+  int centerNode = mesh.n(floor(mesh.nnx),floor(mesh.nny),floor(mesh.nnz)); /* force applied here */
 
-  double d[mesh.nn*3], v[mesh.nn*3], a[mesh.nn*3];
-  memset(d,0, sizeof d), memset(v,0, sizeof v), memset(a,0, sizeof a);
+  /* allocate kinematic fields and forces */
+  double d[mesh.nn*3], v[mesh.nn*3], a[mesh.nn*3], f[mesh.nn*3];
+  /* set entries to zero */
+  memset(d,0, sizeof d), memset(v,0, sizeof v), memset(a,0, sizeof a), memset(f,0,sizeof f); 
+  
+  /* help variable for mat-vec product */
   double KeDe;
-  /* Explicit time stepping */
+
+  /* MASS PROP. DAMPING:
+     C=αM+βK, ξ=0.5(α/ω+βω)
+     Choosing ξ=0.01 at ω=2π*f0
+     -> α=4πξ*f0*/
+  double xi = 0.01;              /* 1% damping at selected frequency */
+  double alpha = 4*M_PI*xi*Ff0;  /* Ff0 from force function */
+
+
+  /**********************************/
+  /* STEP 3: Explicit time stepping */
+  /**********************************/
+  print_vtk(mesh,1);
+  
   for(int it; it<NT; it++){
+
+    /* EXTERNAL FORCES: */
+    /* source time function */
+    Ft = ricker(it*dt-0.5*dt, Ff0,Ft0)*0.01;
+    /* Apply force at center node in z-direction */
+    NodalForce(f,centerNode,2,Ft);
 
     /* prediction of mid-step displacement: */
     /* d_mid = d_old + 0.5*dt*v_old */
     for(int i=0;i<mesh.nn*3;i++)
       d[i] = d[i] + half_dt*v[i];
-
-     /* source time function */
-    Ft = ricker(it*dt-0.5*dt, Ff0,Ft0)*0.01;
-
 
     for(int elx=0; elx<mesh.nelx; elx++){
       for(int ely=0; ely<mesh.nely; ely++){
@@ -114,12 +149,11 @@ int main(){
             for(int j=0;j<sizeKe;j++){
               KeDe += KKe[j+i*sizeKe]*d[edof[j]];
             }
-            a[edof[i]] = a[edof[i]] + (Ft - KeDe)/Me[i];
-            //a(edof +1) = a(edof +1) + ( F(edof +1) - KKe*d(edof +1))/M;
+            a[edof[i]] = a[edof[i]] + (f[edof[i]] - KeDe)/Me[i];
           }
         }
       }
-    }
+    } /* end element loop */
 
 
 
@@ -133,7 +167,7 @@ int main(){
     }
 
     /* Output stuff */
-  }
+  } /* end  of time loop */
 }
 
 
@@ -147,4 +181,13 @@ double ricker(double t, double f0, double t0){
   double f = (2*arg-1)*exp(-arg);
   return f;
 
+}
+
+/* Apply nodal force function */
+void NodalForce(double* F, int node, int dof, double val){
+  // *F = pointer to force array
+  // node = global node number
+  // dof = 0 1 2
+  // val = force value
+  F[ node*3+dof ] = val;
 }
