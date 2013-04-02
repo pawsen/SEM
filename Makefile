@@ -8,19 +8,16 @@ ifeq ($(par),1)
 else
  # Serial
 	CC = g++
-	SRCS = SEM_serial.cpp
+	SRCS = SEM_serial.cpp fedata.cpp
 	PROJECT= SEM_s
-# EXODUS SPECIFIC STUFF
-	INC_EXODUS =
-	LIBEXODUS =
 endif
 
-objects = $(patsubst %.cc, %.o,$(SRCS))
+objects = $(patsubst %.cpp, %.o,$(SRCS))
 
 LINKFLAGS=
-LIBS= $(LIBEXODUS)
+LIBS=
 CFLAGS= -Wno-write-strings -g
-INCLUDE = $(INC_EXODUS)
+INCLUDE =
 
 
 .PHONY: all
@@ -35,12 +32,8 @@ ${PROJECT}: $(objects)
 	$(CC) $(objects) $(LINKFLAGS) $(LIBS) -o ${PROJECT}
 
 
-%.o: %.cc
+%.o: %.cpp
 	$(CC) $(CFLAGS) -c $< -o $@
-
-# special rule for the file containing exodus_ref
-exodus.o : exodus.cc
-	$(CC) $(CFLAGS) $(INCLUDE) -c $< -o $@ 
 
 
 # special rule for the file containing exodus_ref
