@@ -11,42 +11,46 @@
 #include "fedata.h"
 #include "vtk.h"
 
-#include <vtkStructuredGrid.h>
-#include <vtkXMLStructuredGridWriter.h>
+/* #include <vtkStructuredGrid.h> */
+/* #include <vtkXMLStructuredGridWriter.h> */
 #include <vtkRectilinearGrid.h>
 #include <vtkXMLRectilinearGridWriter.h>
 
+/* These are always needed. No matter the mesh type */
 #include <vtkDoubleArray.h>
 #include <vtkIntArray.h>
 #include <vtkFloatArray.h>
+/* Smart!:) way of initializing variables. Using this when calling, there's no
+   need for deleting the pointers manually. Because they are destroyed when this
+   routine is finished */
+/* http://www.vtk.org/Wiki/VTK/Tutorials/SmartPointers */
 #include <vtkSmartPointer.h>
-#include "vtkPointData.h"
-
-//#include <vtkXMLUnstructuredGridWriter.h>
+#include <vtkPointData.h> /* Needed for adding data to the mesh */
 
 
-void print_vtk(FEMclass mesh, int step){
+
+void print_vtk(FEMclass mesh, int step, double *vec){
 
   /* USE SMARTPOINTERS */
-  
-  /* http://www.vtk.org/Wiki/VTK/Tutorials/SmartPointers */
 
   // Create a rectilinear grid by defining three arrays specifying the
   // coordinates in the x-y-z directions.
-  vtkDoubleArray *xCoords = vtkDoubleArray::New();
-  for (int i=0; i<mesh.nnx; i++) xCoords->InsertNextValue(i);
- 
-  vtkDoubleArray *yCoords = vtkDoubleArray::New();
-  for (int i=0; i<mesh.nny; i++) yCoords->InsertNextValue(i);
-  
-  vtkDoubleArray *zCoords = vtkDoubleArray::New();
-  for (int i=0; i<mesh.nnz; i++) zCoords->InsertNextValue(i);
+  vtkSmartPointer<vtkDoubleArray>
+    xCoords = vtkSmartPointer<vtkDoubleArray>::New();
+  for (int i=0; i<mesh.nnx; i++) xCoords->InsertNextValue(mesh.x[i]);
+  vtkSmartPointer<vtkDoubleArray>
+    yCoords = vtkSmartPointer<vtkDoubleArray>::New();
+  for (int i=0; i<mesh.nny; i++) yCoords->InsertNextValue(mesh.y[i]);
+  vtkSmartPointer<vtkDoubleArray>
+    zCoords = vtkSmartPointer<vtkDoubleArray>::New();
+  for (int i=0; i<mesh.nnz; i++) zCoords->InsertNextValue(mesh.z[i]);
 
 
   // The coordinates are assigned to the rectilinear grid. Make sure that
   // the number of values in each of the XCoordinates, YCoordinates,
   // and ZCoordinates is equal to what is defined in SetDimensions().
-  vtkRectilinearGrid *rgrid = vtkRectilinearGrid::New();
+  vtkSmartPointer<vtkRectilinearGrid>
+    rgrid = vtkSmartPointer<vtkRectilinearGrid>::New();
   rgrid->SetDimensions(mesh.nnx,mesh.nny,mesh.nnz);
   rgrid->SetXCoordinates(xCoords);
   rgrid->SetYCoordinates(yCoords);
@@ -54,47 +58,44 @@ void print_vtk(FEMclass mesh, int step){
 
 
   /* Write data to the grid */
-  vtkFloatArray* temperature = vtkFloatArray::New();
-  temperature->SetName("Temperature");
-  temperature->SetNumberOfComponents(1);
-  temperature->SetNumberOfValues(mesh.nn);
+  /* vtkFloatArray* temperature = vtkFloatArray::New(); */
+  /* vtkSmartPointer<vtkFloatArray> */
+  /*   temperature = vtkSmartPointer<vtkFloatArray>::New(); */
+  /* temperature->SetName("Temperature"); */
+  /* temperature->SetNumberOfComponents(1); */
+  /* temperature->SetNumberOfValues(mesh.nn); */
+  /* for(int i=0;i<mesh.nn;i++){ */
+  /*   temperature->SetValue(i,i); */
+  /* } */
+  /* rgrid->GetPointData()->AddArray(temperature); */
+
+  /* vtkSmartPointer<vtkFloatArray> */
+  /*   velocity = vtkSmartPointer<vtkFloatArray>::New(); */
+  /* velocity->SetName("Velocity"); */
+  /* velocity->SetNumberOfComponents(3); */
+  /* velocity->SetNumberOfTuples(mesh.nn); */
+  /* for(int i=0;i<mesh.nn;i++){ */
+  /*   velocity->SetTuple3(i,1*i, 10, 30); // set everything to 10 */
+  /* } */
+  /* rgrid->GetPointData()->AddArray(velocity); */
+
+  vtkSmartPointer<vtkFloatArray>
+    disp = vtkSmartPointer<vtkFloatArray>::New();
+  disp->SetName("disp");
+  disp->SetNumberOfComponents(3);
+  disp->SetNumberOfTuples(mesh.nn);
   for(int i=0;i<mesh.nn;i++){
-    temperature->SetValue(i,i);
+    disp->SetTuple3(i,vec[i*3+0], vec[i*3+1], vec[i*3+2]); // set everything to 10
   }
-  rgrid->GetPointData()->AddArray(temperature);
+  rgrid->GetPointData()->AddArray(disp);
 
-  vtkFloatArray* velocity = vtkFloatArray::New();
-  velocity->SetName("Velocity");
-  velocity->SetNumberOfComponents(3);
-  velocity->SetNumberOfTuples(mesh.nn);
-  for(int i=0;i<mesh.nn;i++){
-    velocity->SetTuple3(i,1*i, 10, 30); // set everything to 10
-  }
-  rgrid->GetPointData()->AddArray(velocity);
-
-
-  // Create a double array.
-  /* vtkDoubleArray* vorticity = vtkDoubleArray::New(); */
-  /* vorticity->SetName("Vorticity"); */
-  /* vorticity->SetNumberOfComponents(3); */
-  /* vorticity->SetNumberOfTuples(mesh.nn*3); */
-  /* vorticity->InsertNextValue(3.4); */
-
-  // Create the dataset. In this case, we create a vtkPolyData
-  /* vtkPolyData* polydata = vtkPolyData::New(); */
-  /* polydata->GetPointData()->SetScalars(temperature); */
-  // Assign scalars
-  /* rgrid->GetPointData()->SetScalars(temperature); */
-  // Add the vorticity array. In this example, this field
-  // is not used.
-  // rgrid->GetPointData()->AddArray(vorticity);
 
   /* Write to file */
   vtkSmartPointer<vtkXMLRectilinearGridWriter>
     writer = vtkSmartPointer<vtkXMLRectilinearGridWriter>::New();
 
   char filename [30];
-  int n = sprintf(filename,"sem_%.4i.vtr",step);
+  int n = sprintf(filename,"plots/sem_%.4i.vtr",step);
   writer->SetFileName(filename);
 
 #if VTK_MAJOR_VERSION <= 5
@@ -105,10 +106,10 @@ void print_vtk(FEMclass mesh, int step){
   writer->Write();
 
   /* clean up */
-  xCoords->Delete();
-  yCoords->Delete();
-  zCoords->Delete();
-  rgrid->Delete();
+  /* xCoords->Delete(); */
+  /* yCoords->Delete(); */
+  /* zCoords->Delete(); */
+  /* rgrid->Delete(); */
 
   printf("DONE printing\n");
 }

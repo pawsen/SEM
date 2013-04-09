@@ -1,5 +1,6 @@
 # -*- coding: utf-8; mode: makefile -*-
 
+
 par = 0
 ifeq ($(par),1)
 	CC = mpic++
@@ -8,8 +9,8 @@ ifeq ($(par),1)
 else
  # Serial
 	CC = g++
-	SRCS = SEM_serial.cpp fedata.cpp vtk.cpp aux.cpp transient.cpp
-	PROJECT= SEM_s
+	SRCS = SEM_serial.cpp fedata.cpp vtk.cpp
+	PROJECT= SEM_gbar
 endif
 
 objects = $(patsubst %.cpp, %.o,$(SRCS))
@@ -19,14 +20,14 @@ CFLAGS= -Wno-deprecated -g
 ########
 # BLAS #
 ########
-LIBBLAS = -lblas
+LIBBLAS = -L/usr/lib64/ -lbas
 INCBLAS = -I/usr/include/
 
 #######
 # VTK #
 #######
-LIBVTK = -L/usr/lib/ -lvtkCommon -lvtkIO -lvtkFiltering
-INCVTK = -I/usr/include/vtk-5.8
+LIBVTK = -L/appl/VTK/5.10.1/lib/vtk-5.10/ -lvtkCommon -lvtkIO -lvtkFiltering
+INCVTK = -I/appl/VTK/5.10.1/include/vtk-5.10/
 
 
 LIBS= ${LIBVTK} ${LIBBLAS}

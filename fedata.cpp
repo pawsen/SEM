@@ -1,5 +1,6 @@
 // -*- coding: utf-8 -*-
 
+#include <stdio.h>
 #include "fedata.h"
 #include <math.h>
 
@@ -14,6 +15,24 @@ FEMclass::FEMclass(int i1, int i2, int i3,
   /* set other variables */
   tot_nodes();
   set_gll();
+  set_coor();
+  set_Ke();
+  set_edof();
+
+  /* no springs or fixed dofs yet */
+  numFixedDofs = 0;
+  numSpringDofs = 0;
+
+}
+
+void FEMclass::set_Ke(){
+  /* must be called after tot_nodes => nen is declared */
+  sizeB = new int[2];
+  sizeB[0] = 6;
+  sizeB[1] = nen*3;
+  sizeC = new int[2];
+  sizeC[0] = 6;
+  sizeC[1] = 6;
 }
 
 void FEMclass::tot_nodes(){
@@ -24,18 +43,42 @@ void FEMclass::tot_nodes(){
   nny = nely*ngll-(nely-1);
   nnz = nelz*ngll-(nelz-1);
   nn = nnx*nny*nnz;
+  nen = pow(ngll,3);
 }
 
 
+void FEMclass::set_coor(){
+  /* Calculates x,y,z coor from gll points */
 
-MATPROPclass::MATPROPclass(double d1,double d2,double d3,double d4){
-  /* Initialize material properties */
-  e = d1, nu = d2, thk = d3, rho = d4;
-  mu = e/(2*(1+nu));
-  vs = sqrt(mu/rho);
+  x=new double[nnx]; y=new double[nny]; z=new double[nnz];
+  /* length of element */
+  dlx = lx/nelx;
+  dly = ly/nely;
+  dlz = lz/nelz;
+
+  //printf("size x: %i \n",nnx);
+  set_coor_helper(x,dlx,nelx);
+  set_coor_helper(y,dly,nely);
+  set_coor_helper(z,dlz,nelz);
 }
 
-void FEMclass::set_gll(double *gll,double *w,int ngll){
+void FEMclass::set_coor_helper(double *xx, double dxx,int nelxx){
+  int idx=0;
+  /* Helt ude at skide. Kører igennem al for mange elementer */
+  for(int i=0;i<nelxx;i++){
+    for(int j=0;j<ngll-1;j++){
+      /* X(e+1)+X(e) = dx*(2*i+1), where X(e) is the global start coordinate of
+         element e */
+      // printf("idx: %i \t",idx);
+      xx[idx] = 0.5*dxx*(2*i+1) + 0.5*dxx*gll[j];
+      idx += 1;
+    }
+  }
+  /* add last nodes coor */
+  xx[idx] = dxx*nelxx;// = lxx
+}
+
+void FEMclass::set_gll(){// (double *gll,double *w,int ngll){
   /* get gll-points and weights*/
 
   gll=new double[ngll];
@@ -89,6 +132,59 @@ void FEMclass::set_gll(double *gll,double *w,int ngll){
   }
   for(int i=0;i<n;i++){
     gll[i] = -gll[ngll-1-i];
-    w[i] = -w[ngll-1-i];
+    w[i] = w[ngll-1-i];
   }
+}
+
+void FEMclass::set_edof(){
+  
+  /* initialize edof mat */
+  edof = new int[nen*3*ne];  
+  
+  int ii = 0; // element counter        
+  int jj = 0; // node couter
+  int node0; // global number of element "0-node"
+  int node; // considered element node
+
+  /* loop elements */
+  for(int elx=0; elx<nelx; elx++){
+    for(int ely=0; ely<nely; ely++){
+      for(int elz=0; elz<nelz; elz++){
+
+	/* get element "0-node" */
+	node0 = N0(elx,ely,elz);
+	
+	/* loop element nodes */
+	jj = 0;
+	for(int k=0; k<ngll; k++){
+	  for(int j=0; j<ngll; j++){
+	    for(int i=0; i<ngll; i++){
+
+	      node = node0+i+j*nnx+k*nnx*nny; // global node number
+	 
+	      edof[(jj+0)*ne+ii] = node*3+0; // global x-dof number
+	      edof[(jj+1)*ne+ii] = node*3+1; // global y-dof number
+	      edof[(jj+2)*ne+ii] = node*3+2; // global z-dof nubmer
+
+	      jj = jj+3;
+	      
+	    }
+	  }
+	} /* end node loop */ 
+
+	ii=ii+1;
+
+      }
+    }
+  } /* end element loops */
+
+}
+
+
+
+MATPROPclass::MATPROPclass(double d1,double d2,double d3,double d4){
+  /* Initialize material properties */
+  e = d1, nu = d2, thk = d3, rho = d4;
+  mu = e/(2*(1+nu));
+  vs = sqrt(mu/rho);
 }

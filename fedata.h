@@ -9,19 +9,29 @@
 class FEMclass{
 private:
   void tot_nodes();
-  void set_gll(double*, double*, int);
+  /* Hør! Det er da vidst ikke nødvendigt at give interne variable ind. Spørg
+     Henrik */
+  void set_gll();
+  void set_coor();
+  void set_coor_helper(double *x, double dx,int nelx);
+  void set_Ke();
 public:
   /* Number of element in axis direction */
   int nelx,nely,nelz;
   /* Total number of elements */
   int ne;
-  /* Element lenghts in the axis directions */
+  /* Structure lengths in the axis directions */
   double lx,ly,lz;
+  /* Element lengths in the axis direction */
+  double dlx,dly,dlz;
   /* Number of GLL nodes per element in each axis direction */
   int ngll;
+  /* number of nodes in one element */
+  int nen;
   /* Total number of nodes in directions */
   int nnx,nny,nnz;
   int nn;
+
   /* Constructor.  Set ne, length, gl points */
   FEMclass (int,int,int,double,double,double,int);
 
@@ -39,6 +49,30 @@ public:
 
   /* gll points and weight */
   double *gll, *w;
+
+  /* coordinates */
+  double *x, *y, *z;
+
+  /* size of strain/displacement matrix(B) */
+  int *sizeB;
+  //double *B;
+  /* size of 'elastic constitutive matrix'(C)
+     http://en.wikipedia.org/wiki/Hooke's_law#Isotropic_materials*/
+  int *sizeC;
+  //double *C;
+
+  /* array of edof indices: edof[d*ne+j], d = dof [0;nen*3], e = element [0,ne] */
+  int *edof;
+  void set_edof();
+
+  /* fixed dofs */
+  int *fixedDofs;
+  int numFixedDofs;
+
+  /* spring dofs */
+  int *springDofs;
+  int numSpringDofs;
+
 };
 
 class MATPROPclass{
@@ -47,6 +81,8 @@ public:
   double e, nu, thk, rho;
   MATPROPclass (double,double,double,double);
   double mu, vs;
+
+
 };
 
 

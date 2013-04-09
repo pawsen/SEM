@@ -3,6 +3,6 @@
 
 
 
-void print_vtk(FEMclass mesh, int step);
+void print_vtk(FEMclass mesh, int step, double *vect);
 
 #endif
