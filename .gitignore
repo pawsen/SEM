@@ -1,5 +1,16 @@
 # ignore compiled project
 /SEM_s
+/SEM_gbar
+
+# ignore folders
+awkscripts/
+plots/
+test/
+stout/
+
+# stuff from valgrin
+massif*
+
 =======
 # Compiled Object files
 *.slo
