@@ -19,7 +19,7 @@ private:
   double *vtilde;
   
   /* take a single time step */
-  void ExplicitCDSStep(const double *F,const double *Ke,const double *Ce, const double *Me);
+  void ExplicitCDSStep(const double *Ke,const double *Ce, const double *Me);
 
 public:
 
@@ -27,7 +27,10 @@ public:
   double *d;
   double *v;
   double *a;
-  
+
+  /* source vector */
+  double *f;
+
   /* stepsize */
   double dt;
 

@@ -48,9 +48,9 @@ int main(){
   /* STEP 1: Initialize mesh and material */
   /****************************************/
 
-  FEMclass mesh(2,2,10,1,1,1,3);
+  FEMclass mesh(10,10,2,10,10,2,3,4);
   /* e, nu, thk, rho; */
-  MATPROPclass mat(10000,0,1,1);
+  MATPROPclass mat(10000,0.0,1,1);
 
   /* cout << "nodes x: "; */
   /* for(int i=0;i<mesh.nnx;i++){ */
@@ -76,26 +76,13 @@ int main(){
 
   /* Ask Boyan  CLF and Δx/Δy Is that the element length, or minimum distance
      between nodes?. */
-  double CLF = 1;
-  double dt = 0.0000001;
-  double half_dt = 0.5*dt;
-
-  /* Global elements first node(N0). Used to calculate rest of elements nodes*/
-  double No, node;
-  //int edof[sizeKe];
-  int centerNode = mesh.n(floor(mesh.nnx/2),floor(mesh.nny/2),floor(mesh.nnz/2)); /* force applied here */
-
-  /* allocate kinematic fields and forces */
-  double *d = new double[mesh.nn*3];
-  double *v = new double[mesh.nn*3];
-  double *a = new double[mesh.nn*3];
-  double *f = new double[mesh.nn*3];
-
-  /* set entries to zero */
-  memset(d,0, sizeof d), memset(v,0, sizeof v), memset(a,0, sizeof a);
-  memset(f,0,sizeof f);
-
-
+  double CLF = 0.6;
+  
+  double dt = CLF*mesh.dlx/(mesh.ngll+1)/mat.vs;
+  dt *= 0.5;
+  cout << "dt: " << dt << endl;
+  // CFL = 0.6; % stability number = CFL_1D / sqrt(2);
+  // dt = CFL*min([lx,ly,lz])/(NGLL+1)/vs;
   /******************************/
   /* Construct element matrices */
   /******************************/
@@ -124,23 +111,39 @@ int main(){
   for(int i=0; i<mesh.nen*3; i++)
     Ce[i] = alpha*Me[i];
 
+  /* cout << "M-vec: " << endl; */
+  /* for(int ii=0;ii<10;ii++){ */
+
+  /*     cout << Me[ii] << "\t"; */
+  /* } */
+  /*   cout << endl; */
+
+  int tmp = sizeKe;
+  cout << "K-mat: " << endl;
+  for(int ii=0;ii<10;ii++){
+    for(int jj=0;jj<8;jj++){
+      cout << Ke[ii*tmp+jj] << "\t";
+    }
+    cout << endl;
+  }
+  //  return 1;
+
   /* just for testing */
-  for(int i=0;i<100;i++)
-    print_vtk(mesh,i+1,d);
+  /* for(int i=0;i<1;i++) */
+  /*   print_vtk(mesh,i+1,d); */
 
   /**********************************/
   /* STEP 3: Explicit time stepping */
   /**********************************/
-  int NT = 2;
+  int NT = 1000;
 
   /* Create times step object */
 
-  /**********************************************************************/
-  /* SKAL DU IKKE ALLOKERE d,v,a osv? Så tror jeg det fungerer bedre :) */
-  /**********************************************************************/
-  /* TransientSolver ExplicitSolver(&mesh,dt,NT); */
-  /* ExplicitSolver.Solve(ForceUpdater,Ke,Ce,Me); */
-  
+  TransientSolver ExplicitSolver(&mesh,dt,NT);
+  ExplicitSolver.Solve(ForceUpdater,Ke,Ce,Me);
+
+
+
 
 }
 
@@ -163,11 +166,12 @@ void NodalForce(double* F, int node, int dof, double val){
   // dof = 0 1 2
   // val = force value
   F[ node*3+dof ] = val;
+
 }
 
 /* Force function */
 void ForceUpdater(FEMclass* mesh,double* F,double t){
-  
+
   /* det er selvfølgeligt lidt uheldigt at det skal hardcodes her igen.. */
   double Ff0 = 0.25;
   double Ft0 = 1.5/Ff0;
@@ -177,9 +181,9 @@ void ForceUpdater(FEMclass* mesh,double* F,double t){
   int ny_half = floor(mesh->nny/2);
   int nz_half = floor(mesh->nnz/2);
   int center_node = mesh->n(nx_half,ny_half,nz_half);
-
+  
   /* Apply force in z-direction */
-  NodalForce(F,center_node,2,ricker(t,Ff0,Ft0));
+  NodalForce(F,center_node,2,ricker(t,Ff0,Ft0));  
 
 }
 

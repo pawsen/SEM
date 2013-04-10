@@ -29,7 +29,7 @@
 
 
 
-void print_vtk(FEMclass mesh, int step, double *vec){
+void print_vtk(FEMclass* mesh, int step, double *vec){
 
   /* USE SMARTPOINTERS */
 
@@ -37,13 +37,13 @@ void print_vtk(FEMclass mesh, int step, double *vec){
   // coordinates in the x-y-z directions.
   vtkSmartPointer<vtkDoubleArray>
     xCoords = vtkSmartPointer<vtkDoubleArray>::New();
-  for (int i=0; i<mesh.nnx; i++) xCoords->InsertNextValue(mesh.x[i]);
+  for (int i=0; i<mesh->nnx; i++) xCoords->InsertNextValue(mesh->x[i]);
   vtkSmartPointer<vtkDoubleArray>
     yCoords = vtkSmartPointer<vtkDoubleArray>::New();
-  for (int i=0; i<mesh.nny; i++) yCoords->InsertNextValue(mesh.y[i]);
+  for (int i=0; i<mesh->nny; i++) yCoords->InsertNextValue(mesh->y[i]);
   vtkSmartPointer<vtkDoubleArray>
     zCoords = vtkSmartPointer<vtkDoubleArray>::New();
-  for (int i=0; i<mesh.nnz; i++) zCoords->InsertNextValue(mesh.z[i]);
+  for (int i=0; i<mesh->nnz; i++) zCoords->InsertNextValue(mesh->z[i]);
 
 
   // The coordinates are assigned to the rectilinear grid. Make sure that
@@ -51,7 +51,7 @@ void print_vtk(FEMclass mesh, int step, double *vec){
   // and ZCoordinates is equal to what is defined in SetDimensions().
   vtkSmartPointer<vtkRectilinearGrid>
     rgrid = vtkSmartPointer<vtkRectilinearGrid>::New();
-  rgrid->SetDimensions(mesh.nnx,mesh.nny,mesh.nnz);
+  rgrid->SetDimensions(mesh->nnx,mesh->nny,mesh->nnz);
   rgrid->SetXCoordinates(xCoords);
   rgrid->SetYCoordinates(yCoords);
   rgrid->SetZCoordinates(zCoords);
@@ -67,7 +67,7 @@ void print_vtk(FEMclass mesh, int step, double *vec){
   /* for(int i=0;i<mesh.nn;i++){ */
   /*   temperature->SetValue(i,i); */
   /* } */
-  /* rgrid->GetPointData()->AddArray(temperature); */
+  /* rgrid->GetPointData()->Addrray(temperature); */
 
   /* vtkSmartPointer<vtkFloatArray> */
   /*   velocity = vtkSmartPointer<vtkFloatArray>::New(); */
@@ -83,8 +83,8 @@ void print_vtk(FEMclass mesh, int step, double *vec){
     disp = vtkSmartPointer<vtkFloatArray>::New();
   disp->SetName("disp");
   disp->SetNumberOfComponents(3);
-  disp->SetNumberOfTuples(mesh.nn);
-  for(int i=0;i<mesh.nn;i++){
+  disp->SetNumberOfTuples(mesh->nn);
+  for(int i=0;i<mesh->nn;i++){
     disp->SetTuple3(i,vec[i*3+0], vec[i*3+1], vec[i*3+2]); // set everything to 10
   }
   rgrid->GetPointData()->AddArray(disp);

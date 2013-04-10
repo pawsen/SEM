@@ -12,6 +12,7 @@ private:
   /* Hør! Det er da vidst ikke nødvendigt at give interne variable ind. Spørg
      Henrik */
   void set_gll();
+  void get_points(int npoints,double *gll, double *w);
   void set_coor();
   void set_coor_helper(double *x, double dx,int nelx);
   void set_Ke();
@@ -33,7 +34,7 @@ public:
   int nn;
 
   /* Constructor.  Set ne, length, gl points */
-  FEMclass (int,int,int,double,double,double,int);
+  FEMclass (int,int,int,double,double,double,int,int);
 
   /* Element numbering according to convention (ZERO INDEXED) */
   /* (i,j,k) -> (i+j*NELX+k*NELX*NELY) */
@@ -47,8 +48,11 @@ public:
   int N0(int elx,int ely, int elz) {
     return elx*(ngll-1) + ely*(ngll-1)*nnx + elz*(ngll-1)*nnx*nny;}
 
-  /* gll points and weight */
-  double *gll, *w;
+  /* gll points for plotting(eq. get coordinates) */
+  double *gll;
+  /* Numerical integration points */
+  double *intPoints, * w;
+  int nInt;
 
   /* coordinates */
   double *x, *y, *z;

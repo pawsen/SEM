@@ -176,11 +176,11 @@ void construct_Ke(MATPROPclass *mat,FEMclass *mesh,double *Ke){
   /* } */
 
   int tmp = mesh->nen*3;
-  for(int i=0;i<mesh->ngll;i++){
-    for(int j=0;j<mesh->ngll;j++){
-      for(int k=0;k<mesh->ngll;k++){
+  for(int i=0;i<mesh->nInt;i++){
+    for(int j=0;j<mesh->nInt;j++){
+      for(int k=0;k<mesh->nInt;k++){
         /* get B for the current gll points */
-        x = mesh->gll[i]; y = mesh->gll[j]; z = mesh->gll[k];
+        x = mesh->intPoints[i]; y = mesh->intPoints[j]; z = mesh->intPoints[k];
         construct_B(x,y,z,mesh,B);
 
         /* cout << "B-mat: " << endl; */
