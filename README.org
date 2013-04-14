@@ -1,0 +1,97 @@
+# -*- coding: utf-8 -*-
+
+* SEM
+
+Spectral methods for FEM
+
+** Install and compile
+*** vtk
+Install headers and libraries for C++:
+sudo apt-get install libvtk5-dev
+
+For a list of related packages:
+https://launchpad.net/ubuntu/+source/vtk
+
+*** cblas
+Documentation:
+http://www.netlib.org/lapack/explore-html/
+or old-fashion 
+http://www.netlib.org/blas/
+
+Beside being implementations, BLAS and LAPACK are also API standard for basic linear algebra operations (such as vector and matrix multiplication).
+So one can test with calls to blas, and then change to a optimized implementation, eg. Atlas or Openblas later.
+
+
+cblas is a part of the blas installation(actually it is just an interface for calling the fortran library blas.so).
+Pass all arguments by reference because of the Fortran implementation.
+
+http://packages.ubuntu.com/source/quantal/blas
+sudo apt-get install libblas-dev
+
+*** lapack
+User guide
+http://www.netlib.org/lapack/lug/lapack_lug.html
+
+http://www.math.utah.edu/software/lapack.html
+http://www.netlib.org/clapack/readme
+
+*** Call fortran files from C/C++
+http://www.math.utah.edu/software/c-with-fortran.html
+
+
+* Debugging MPI
+
+Start by looking at
+http://stackoverflow.com/questions/329259/how-do-i-debug-an-mpi-program
+
+And then at  
+http://www.open-mpi.org/faq/?category=debugging
+
+It is possible to use valgrind with MPI. There is two directions to go:
+
+** Compile OpenMPI linking to any Valgrind installation
+
+OpenMPI have a memchecker included. It is enabled like this:
+
+First MPI needs to be compiled with support for valgrind.
+Download [[http://www.open-mpi.org/~jsquyres/www.open-mpi.org/software/ompi/v1.6/][Open MPI]] and configure as described [[http://www.open-mpi.org/faq/?category%3Ddebugging#memchecker_how][here]].
+
+Then it is possible to run 
+$ mpirun -np 8 valgrind ./my-exe
+
+that is, launch 8 valgrinds, each running one process' worth of my-exe
+
+** Compile valgrind linking to any OpenMPI installation
+
+Valgrind needs to be compiled with support for mpi, as described [[http://valgrind.org/docs/manual/mc-manual.html#mc-manual.mpiwrap][here]].
+
+$./configure --with-mpicc=/path/to/mpicc
+
+This will make a library file: libmpiwrap-<platform>.so(libmpiwrap-amd64-linux.so) which is needed when valgrind is called.
+Alternatively the lib can be linked directly to my-exe at compilation time. This should not influence the generel behavior of my-exe.
+
+
+** The finer details - difference between the methods
+Look [[http://stackoverflow.com/a/14838973/1121523][here]] for a technical description of the difference of the two methods.
+
+
+
+* Write .vtu file to paraview
+
+http://packages.ubuntu.com/source/quantal/vtk
+
+Dette er vidst ikke xml!
+http://www.vtk.org/doc/nightly/html/classvtkWriter.html
+http://www.vtk.org/doc/nightly/html/classvtkRectilinearGridWriter.html
+
+Brug denne i stedet.Kan også bruges med MPI.
+http://www.vtk.org/doc/nightly/html/annotated.html
+http://www.vtk.org/doc/nightly/html/classvtkXMLRectilinearGridWriter.html#details
+http://www.vtk.org/doc/nightly/html/classvtkXMLPRectilinearGridWriter.html
+
+MPI:
+http://liberlocus.blogspot.dk/2013/03/how-to-write-vtk-file-in-parallel.html
+
+http://vtk.org/gitweb?p=VTK.git;a=blob;f=Examples/DataManipulation/Cxx/RGrid.cxx
+
+!HUSK! At binær data skal skrives som Big Indian. Standard er litle indian. Kun relevant hvis vi selv skriver rutinen.
