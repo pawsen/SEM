@@ -3,14 +3,19 @@
 #include <stdio.h>
 #include "fedata.h"
 #include <math.h>
+#include <string.h>
+#include <iostream>
+using namespace std;
 
 /* constructor */
 FEMclass::FEMclass(int i1, int i2, int i3,
                    double d1, double d2, double d3,
+                   double d4, double d5,
                    int i4, int i5){
 
   nelx = i1, nely = i2, nelz = i3;
   lx = d1, ly = d2, lz = d3;
+  offsetX = d4, offsetY = d5;
   ngll = i4; nInt = i5;
   /* set other variables */
   tot_nodes();
@@ -19,10 +24,10 @@ FEMclass::FEMclass(int i1, int i2, int i3,
   set_Ke();
   set_edof();
 
-  /* no springs or fixed dofs yet */
+  /* no dofs yet */
   numFixedDofs = 0;
-  numSpringDofs = 0;
-
+  fixedDofs = new int[nn*3];
+  memset(fixedDofs,0,sizeof(int)*nn*3);
 }
 
 void FEMclass::set_Ke(){
@@ -56,13 +61,15 @@ void FEMclass::set_coor(){
   dly = ly/nely;
   dlz = lz/nelz;
 
+  cout << "offsetX: " << offsetX << ", offsetY: " << offsetY << endl;
   //printf("size x: %i \n",nnx);
-  set_coor_helper(x,dlx,nelx);
-  set_coor_helper(y,dly,nely);
-  set_coor_helper(z,dlz,nelz);
+  set_coor_helper(x,dlx,nelx,offsetX);
+  set_coor_helper(y,dly,nely,offsetY);
+  set_coor_helper(z,dlz,nelz,0.0);
 }
 
-void FEMclass::set_coor_helper(double *xx, double dxx,int nelxx){
+void FEMclass::set_coor_helper(double *xx, double dxx,int nelxx, double offset){
+
   int idx=0;
   /* Helt ude at skide. Kører igennem al for mange elementer */
   for(int i=0;i<nelxx;i++){
@@ -70,12 +77,12 @@ void FEMclass::set_coor_helper(double *xx, double dxx,int nelxx){
       /* X(e+1)+X(e) = dx*(2*i+1), where X(e) is the global start coordinate of
          element e */
       // printf("idx: %i \t",idx);
-      xx[idx] = 0.5*dxx*(2*i+1) + 0.5*dxx*gll[j];
+      xx[idx] = 0.5*dxx*(2*i+1) + 0.5*dxx*gll[j] + offset;
       idx += 1;
     }
   }
   /* add last nodes coor */
-  xx[idx] = dxx*nelxx;// = lxx
+  xx[idx] = dxx*nelxx + offset;// = lxx
 }
 
 void FEMclass::set_gll(){// (double *gll,double *w,int ngll){
@@ -176,7 +183,7 @@ for(int i=0;i<n;i++){
 /*   xi(3) = dsqrt((3d0+2d0*dsqrt(6d0/5d0))/7d0) */
 /*   xi(4) = -dsqrt((3d0+2d0*dsqrt(6d0/5d0))/7d0) */
 /*   eta = xi */
-
+// http://www.holoborodko.com/pavel/numerical-methods/numerical-integration/#gauss_quadrature_abscissas_table
 void FEMclass::set_edof(){
 
   /* initialize edof mat */

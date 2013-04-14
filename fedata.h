@@ -14,8 +14,10 @@ private:
   void set_gll();
   void get_points(int npoints,double *gll, double *w);
   void set_coor();
-  void set_coor_helper(double *x, double dx,int nelx);
+  void set_coor_helper(double *x, double dx,int nelx, double offset);
   void set_Ke();
+
+  double offsetX, offsetY;
 public:
   /* Number of element in axis direction */
   int nelx,nely,nelz;
@@ -33,8 +35,8 @@ public:
   int nnx,nny,nnz;
   int nn;
 
-  /* Constructor.  Set ne, length, gl points */
-  FEMclass (int,int,int,double,double,double,int,int);
+  /* Constructor.  Set ne, length, offset, gl points, int points */
+  FEMclass (int,int,int,double,double,double,double,double,int,int);
 
   /* Element numbering according to convention (ZERO INDEXED) */
   /* (i,j,k) -> (i+j*NELX+k*NELX*NELY) */
@@ -57,14 +59,6 @@ public:
   /* coordinates */
   double *x, *y, *z;
 
-  /* size of strain/displacement matrix(B) */
-  int *sizeB;
-  //double *B;
-  /* size of 'elastic constitutive matrix'(C)
-     http://en.wikipedia.org/wiki/Hooke's_law#Isotropic_materials*/
-  int *sizeC;
-  //double *C;
-
   /* array of edof indices: edof[d*ne+j], d = dof [0;nen*3], e = element [0,ne] */
   int *edof;
   void set_edof();
@@ -73,10 +67,14 @@ public:
   int *fixedDofs;
   int numFixedDofs;
 
-  /* spring dofs */
-  int *springDofs;
-  int numSpringDofs;
 
+  /* size of strain/displacement matrix(B) */
+  int *sizeB;
+  //double *B;
+  /* size of 'elastic constitutive matrix'(C)
+     http://en.wikipedia.org/wiki/Hooke's_law#Isotropic_materials*/
+  int *sizeC;
+  //double *C;
 };
 
 class MATPROPclass{

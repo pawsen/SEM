@@ -1,20 +1,25 @@
 # -*- coding: utf-8; mode: makefile -*-
 
-par = 0
+# mpirun -np 2 -mca btl tcp,self SEM_p
+
+par = 1
 ifeq ($(par),1)
 	CC = mpic++
-	SRCS = Game_Of_Life_Parallel.cc
-	PROJECT= GOL_P
+	SRCS = SEM_parallel.cpp fedata.cpp vtk.cpp aux.cpp transient.cpp \
+	gauss_legendre.c mpidata.cpp
+	PROJECT= SEM_p
+	CFLAGS1= -DMY_MPI
 else
  # Serial
 	CC = g++
-	SRCS = SEM_serial.cpp fedata.cpp vtk.cpp aux.cpp transient.cpp
+	SRCS = SEM_parallel.cpp fedata.cpp vtk.cpp aux.cpp transient.cpp \
+	gauss_legendre.c
 	PROJECT= SEM_s
 endif
 
 objects = $(patsubst %.cpp, %.o,$(SRCS))
 LINKFLAGS=
-CFLAGS= -Wno-deprecated -g
+CFLAGS= ${CFLAGS1} -Wno-deprecated -g -O2
 
 ########
 # BLAS #

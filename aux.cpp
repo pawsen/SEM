@@ -276,3 +276,16 @@ void construct_Me(MATPROPclass *mat,FEMclass *mesh,double *M){
 /* double E=mat.e,nu=mat.nu; */
 /* #include "Me3.c" */
 /* #include "Ke3.c" */
+
+
+/* void intPoints(){ */
+
+/*   /\* Integration points and weights. Gauss points in this case *\/ */
+
+/*   /\* Points and weights are symmetric around 0, thus only the positive are */
+/*      given explicitly in the table. The negative values are set below *\/ */
+/*   switch(npoints){ */
+/*   case(2): */
+/*     p[1] = 0.5773502691896257645091488 */
+/*   } */
+/* } */

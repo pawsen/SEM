@@ -1,7 +1,7 @@
 double t1 = lx * lx;
-t5 = E / (3 - 6 * nu);
-t7 = 0.1e1 / (double) (1 + nu) / 0.2e1;
-t8 = (double) E * t7;
+double t5 = E / (3 - 6 * nu);
+double t7 = 0.1e1 / (double) (1 + nu) / 0.2e1;
+double t8 = (double) E * t7;
 double t10 = (double) t5 + 0.4e1 / 0.3e1 * t8;
 double t11 = t1 * t10;
 double t12 = ly * ly;

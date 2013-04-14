@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <string.h> /* for memset */
 #include <iostream>
+#include <math.h>
 using namespace std;
 
 TransientSolver::TransientSolver(FEMclass *mesh_in, double dt_in=0.0, int NT_in = 0)
@@ -27,16 +28,20 @@ TransientSolver::TransientSolver(FEMclass *mesh_in, double dt_in=0.0, int NT_in 
   f = new double[(mesh->nn)*3];
 
   /* Set to 0 */
-  memset(d,0, sizeof d);
-  memset(dtilde,0, sizeof dtilde);
-  memset(v,0, sizeof v);
-  memset(vtilde,0, sizeof vtilde);
-  memset(a,0, sizeof a);
-  memset(f,0,sizeof f);
+
+  memset(d,0,sizeof(double)*mesh->nn*3);
+  memset(dtilde,0,sizeof(double)*mesh->nn*3);
+  memset(v,0,sizeof(double)*mesh->nn*3);
+  memset(vtilde,0,sizeof(double)*mesh->nn*3);
+  memset(a,0,sizeof(double)*mesh->nn*3);
+  memset(f,0,sizeof(double)*mesh->nn*3);
+
+  /* for(int i=0;i < mesh->nn*3; i++) */
+  /*   cout << "d[0]: " << d[i] << endl; */
 };
 
-void TransientSolver::ExplicitCDSStep(const double *Ke,
-                                      const double *Ce, const double *Me){
+void TransientSolver::ExplicitCDSStep(const double *Ke, const double *KSpring,
+                                      const double *C, const double *M){
 
   /*********************************************************************/
   /* Newmark Time Integration overview                                 */
@@ -55,8 +60,7 @@ void TransientSolver::ExplicitCDSStep(const double *Ke,
 
   //cout << "a \n";
 
-  int dof; // single entry of edof-vector
-  double prod = 0; // single entry of ke*dtilde product
+
 
   //cout << "b \n";
 
@@ -67,6 +71,14 @@ void TransientSolver::ExplicitCDSStep(const double *Ke,
 
     a[i] = 0.0; // while looping, also reset acceleration for step 2
   }
+
+/* "backward" communications makes it explode */
+#ifdef MY_MPI
+  mpi->communicate(dtilde,true);
+  mpi->communicate(vtilde,true);
+  //  mpi->backwardCommunicate(dtilde);
+  //  mpi->backwardCommunicate(vtilde);
+#endif
 
   //cout << "step1 done" << endl;
 
@@ -92,6 +104,10 @@ void TransientSolver::ExplicitCDSStep(const double *Ke,
   /* cout << "\n ------- DONE --------- \n"; */
 
   /* loop elements, e */
+  /* NOTE: OVERVEJ: */
+  /* for(int e=0; e<mesh.ne; e++){ */
+  int dof; // single entry of edof-vector
+  double prod = 0; // single entry of ke*dtilde product
   int e = 0;
   for(int elx=0; elx<mesh->nelx; elx++){
     for(int ely=0; ely<mesh->nely; ely++){
@@ -103,7 +119,7 @@ void TransientSolver::ExplicitCDSStep(const double *Ke,
           /* prod = dof-th entry of vector from ke*dtilde product */
           prod = 0;
           for(int j=0; j<mesh->nen*3; j++){
-            prod = prod + Ke[i*mesh->nen*3+j]*dtilde[ mesh->edof[j*mesh->ne+e]];
+            prod = prod + Ke[i*mesh->nen*3+j]*dtilde[ mesh->edof[j*mesh->ne+e] ];
           }
 
           /* cout << "prod done, i,e=" << i<< ","<<e << "\n"; */
@@ -112,9 +128,10 @@ void TransientSolver::ExplicitCDSStep(const double *Ke,
           dof = mesh->edof[i*mesh->ne+e];
           /* cout << mesh->edof[i*mesh->ne+e] << " hej " <<"\t"; */
           /* cout << dof << "\t"; */
-          // no springs yet!
-          a[dof] = a[dof] + ( f[dof] - Ce[i]*vtilde[dof] - prod ) /
-            (Me[i]+gamma*dt*Ce[i]);
+          
+          /* RHS, Division cant be done on element basis because M^-1 ≠ ∑Me^-1 */
+          a[dof] = a[dof] + ( f[dof] - C[dof]*vtilde[dof] - prod - KSpring[dof]*dtilde[dof] );
+	  /* a[dof] = a[dof] + ( f[dof] - C[dof]*vtilde[dof] - prod - KSpring[dof]*dtilde[dof] )/(M[i] + gamma*dt*C[i]); */
 
         } /* end dof loop */
 
@@ -124,9 +141,24 @@ void TransientSolver::ExplicitCDSStep(const double *Ke,
     }
   } /* end of element loops */
 
-  /* enforce zero aceleration at fixed dofs */
-  for(int i=0; i<mesh->numFixedDofs; i++)
-    a[ mesh->fixedDofs[i] ] = 0;
+#ifdef MY_MPI
+  mpi->communicate(a,false); /* "forward" communication */
+  //  mpi->communicate(a,true); /* "backward" communication -> SHOULD NOT BE NESSECARY*/
+#endif
+
+  /* Divide with global mass vector */
+  for(int i=0;i<mesh->nn*3;i++){
+    a[i] /= (M[i] + gamma*dt*C[i]);
+  }
+
+#ifdef MY_MPI
+  mpi->communicate(a,false); /* "forward" communication */
+  //  mpi->communicate(a,true); /* "backward" communication -> SHOULD NOT BE NESSECARY*/
+#endif
+
+  /* /\* enforce zero aceleration at fixed dofs *\/ */
+  /* for(int i=0; i<mesh->numFixedDofs; i++) */
+  /*   a[ mesh->fixedDofs[i] ] = 0; */
 
   //cout << "step2 done" << endl;
 
@@ -137,33 +169,75 @@ void TransientSolver::ExplicitCDSStep(const double *Ke,
     v[i] = vtilde[i] + gamma*dt*a[i];
   }
 
+  //cout << "går ind i explicitCDSStep!" << endl;
+  /* for(int i=0;i < mesh->nn*3; i++){ */
+  /*   cout << "d[" << i << "]=" <<  d[i] << endl; */
+  /* } */
+
 }
 
-void TransientSolver::Solve(void (*ft)(FEMclass*,double*,double),
-                            const double *Ke,const double *Ce, const double *Me){
-
+void TransientSolver::Solve(void (*ft)(FEMclass*,double*,double,int),
+                            const double *Ke,const double *KSpring,
+                            const double *C, const double *M){
+ 
   /* Time loop */
-  int t = 0;
+  double t = 0;
   for(int it=0; it<NT; it++){
     t = t + dt;
 
     /* Update force */
-    (*ft)(mesh,f,t);
-
-    //cout << "går ind i explicitCDSStep!" << endl;
+#ifdef MY_MPI
+    if( mpi->myCoords[0]==floor(mpi->dims[0]/2) && mpi->myCoords[1]==floor(mpi->dims[1]/2) ){
+      (*ft)(mesh,f,t,it);
+    }
+#else
+    (*ft)(mesh,f,t,it);
+#endif
+    
+    
+    /* //cout << "går ind i explicitCDSStep!" << endl; */
+    /* for(int i=0;i < mesh->nn*3; i++) */
+    /*   cout << "d[0]: " << d[i] << endl; */
 
     /* Elementwise Explicit Newmark step */
-    ExplicitCDSStep(Ke,Ce,Me);
+    ExplicitCDSStep(Ke,KSpring,C,M);
+    
+    /* //cout << "går ind i explicitCDSStep!" << endl; */
+    /* for(int i=0;i < mesh->nn*3; i++) */
+    /*   cout << "d1[0]: " << d[i] << endl; */
 
+#ifdef MY_MPI
     /* Save data.... */
-    print_vtk(mesh,it,d);
+    print_vtk(mesh,mpi,it,d);
+    /* if( mpi->rank==1 )// mpi->myCoords[0]==floor(mpi->dims[0]/2) && mpi->myCoords[1]==floor(mpi->dims[1]/2) ) */
+    /*   print_vtk(mesh,it,d); */
 
     /* Write out info every 100 steps */
-    if(it % 1000 == 0){
+    if( (mpi->rank == 0) && (it % 100 == 0) ){
       printf("step=%d\n",it);
+      cout << "rank: "<< mpi->rank << ", t: " << t << "\t" << "dt: " << dt << ", d[0]=" << d[0] << endl;
     }
+#else
+    /* Save data.... */
+    print_vtk_serial(mesh,it,d);
+
+    if (it % 100 == 0) 
+    cout << "t: " << t << "\t" << "dt: " << dt << ", d[0]=" << d[0] << endl;
+#endif
 
   }
   /* end time loop */
 
+#ifdef MY_MPI
+  /* write .pvd-file: connect all time step */
+  write_pvd(dt,NT);
+#endif
+
 }
+
+#ifdef MY_MPI
+void TransientSolver::transferMPI(MPIClass *mpi_in){
+  /* Make the mpi-class accessible for communicating between nodes */
+  mpi = mpi_in;
+}
+#endif

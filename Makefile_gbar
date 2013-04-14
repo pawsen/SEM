@@ -1,16 +1,16 @@
 # -*- coding: utf-8; mode: makefile -*-
 
 
-par = 0
+par = 1
 ifeq ($(par),1)
 	CC = mpic++
-	SRCS = Game_Of_Life_Parallel.cc
-	PROJECT= GOL_P
+	SRCS = SEM_parallel.cpp fedata.cpp vtk.cpp aux.cpp transient.cpp mpidata.cpp
+	PROJECT= SEM_p
 else
  # Serial
 	CC = g++
-	SRCS = SEM_serial.cpp fedata.cpp vtk.cpp
-	PROJECT= SEM_gbar
+	SRCS = SEM_serial.cpp fedata.cpp vtk.cpp aux.cpp transient.cpp
+	PROJECT= SEM_s
 endif
 
 objects = $(patsubst %.cpp, %.o,$(SRCS))
@@ -20,7 +20,7 @@ CFLAGS= -Wno-deprecated -g
 ########
 # BLAS #
 ########
-LIBBLAS = -L/usr/lib64/ -lbas
+LIBBLAS = -L/usr/lib64/ -lblas
 INCBLAS = -I/usr/include/
 
 #######
