@@ -13,6 +13,7 @@ private:
      Henrik */
   void set_gll();
   void get_points(int npoints,double *gll, double *w);
+  void set_intPoints();
   void set_coor();
   void set_coor_helper(double *x, double dx,int nelx, double offset);
   void set_Ke();

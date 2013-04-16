@@ -2,6 +2,7 @@
 
 #include "aux.h"
 #include "fedata.h"
+#include "libelement.h"
 
 /* Use 'extern "C"' to tell the C++ compiler that the included library is
    compiled with C and not C++
@@ -154,9 +155,11 @@ void matmul(double alpha, double* A,double* B, double beta,double* C,
 void construct_Ke(MATPROPclass *mat,FEMclass *mesh,double *Ke){
   /* numerical integration of B'*C*B */
 
-  
-  double *B = new double[mesh->sizeB[0]*mesh->sizeB[1]];
-  double *C = new double[mesh->sizeC[0]*mesh->sizeC[1]];
+
+  int lengthB = mesh->sizeB[0]*mesh->sizeB[1];
+  int lengthC = mesh->sizeC[0]*mesh->sizeC[1];
+  double *B = new double[lengthB];
+  double *C = new double[lengthC];
   double *helpMat = new double[mesh->sizeB[1]*mesh->sizeC[1]];
   double detjac = 1.0/8.0*mesh->dlx*mesh->dly*mesh->dlz;
   double factor;
@@ -164,6 +167,12 @@ void construct_Ke(MATPROPclass *mat,FEMclass *mesh,double *Ke){
   /* placeholder for gll points */
   double x,y,z;
 
+  /* NOT necessary to  do memset because maple sets all values of the array.
+     Also these being zero.*/
+  /* memset(B,0,sizeof(double)*lengthB); */
+  /* memset(C,0,sizeof(double)*lengthC); */
+  /* memset(helpMat,0,sizeof(double)*mesh->sizeB[1]*mesh->sizeC[1]); */
+  /* cout << "sizeB: " << lengthB << endl; */
   /* get C */
   construct_CD(mat,C);
 
@@ -181,7 +190,18 @@ void construct_Ke(MATPROPclass *mat,FEMclass *mesh,double *Ke){
       for(int k=0;k<mesh->nInt;k++){
         /* get B for the current gll points */
         x = mesh->intPoints[i]; y = mesh->intPoints[j]; z = mesh->intPoints[k];
-        construct_B(x,y,z,mesh,B);
+        switch (mesh->ngll){
+        case(3):
+          construct_B3(x,y,z,mesh,B); break;
+        case(4):
+          construct_B4(x,y,z,mesh,B); break;
+        case(5):
+          construct_B5(x,y,z,mesh,B); break;
+        case(6):
+          construct_B6(x,y,z,mesh,B); break;
+        case(7):
+          construct_B7(x,y,z,mesh,B); break;
+        }
 
         /* cout << "B-mat: " << endl; */
         /* for(int ii=0;ii<6;ii++){ */
@@ -232,60 +252,20 @@ void construct_Ke(MATPROPclass *mat,FEMclass *mesh,double *Ke){
   delete[] B; delete[] C; delete[] helpMat;
 }
 
-void construct_CD(MATPROPclass *mat, double *CCD){
-  /* Get elastic constitutive matrix'(C) from file */
-
-  double E=mat->e,nu=mat->nu;
-
-#include "matrix/CD.c"
-
-}
-
-void construct_B(double x, double y, double z,FEMclass *mesh, double *BB){
-  /* Get strain/displacement matrix(B) file */
-  /* integration points(x,y,z) are given by gll points */
-
-  /* lengths are element lengths */
-  double lx=mesh->dlx, ly=mesh->dly, lz=mesh->dlz;
-
-#include "matrix/B3.c"
-}
 
 void construct_Me(MATPROPclass *mat,FEMclass *mesh,double *M){
   /* Get diagonal mass vector */
 
-  /* lengths are element lengths */
-  double lx=mesh->dlx, ly=mesh->dly, lz=mesh->dlz;
-  double rho=mat->rho;
-
-#include "matrix/Me3.c"
+  switch (mesh->ngll){
+  case(3):
+    construct_Me3(mat,mesh,M); break;
+  case(4):
+    construct_Me4(mat,mesh,M); break;
+  case(5):
+    construct_Me5(mat,mesh,M); break;
+  case(6):
+    construct_Me6(mat,mesh,M); break;
+  case(7):
+    construct_Me7(mat,mesh,M); break;
+  }
 }
-
-/* // NOTE Henrik: Vær forsigtig med at bruge sizeof(KKe). Det duer kun her fordi */
-/* // KKe virkelig er et array. Hvis den fx. blev overført til en funktion, */
-/* // skulle man nok skrive sizeof(KKe[0])*sizeKe*sizeKe. */
-/* // cout << "sizeof ME" << sizeof(Me) << endl; // = 648/8 = 81. Korrekt */
-
-/* /\* Read pre-integrated local mass(diagonal due to SEM) and Ke from file*\/ */
-/* /\* emacs: */
-/*    apply-macro-to-region-lines*\/ */
-/* /\* THIS is WHACK, HACK and not good practice. But... *\/ */
-/* /\* And remember the file must NOT be included as a source file! *\/ */
-
-/* double lx=mesh.lx, ly=mesh.ly, lz=mesh.lz; */
-/* double E=mat.e,nu=mat.nu; */
-/* #include "Me3.c" */
-/* #include "Ke3.c" */
-
-
-/* void intPoints(){ */
-
-/*   /\* Integration points and weights. Gauss points in this case *\/ */
-
-/*   /\* Points and weights are symmetric around 0, thus only the positive are */
-/*      given explicitly in the table. The negative values are set below *\/ */
-/*   switch(npoints){ */
-/*   case(2): */
-/*     p[1] = 0.5773502691896257645091488 */
-/*   } */
-/* } */

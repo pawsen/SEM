@@ -74,8 +74,6 @@ Alternatively the lib can be linked directly to my-exe at compilation time. This
 ** The finer details - difference between the methods
 Look [[http://stackoverflow.com/a/14838973/1121523][here]] for a technical description of the difference of the two methods.
 
-
-
 * Write .vtu file to paraview
 
 http://packages.ubuntu.com/source/quantal/vtk
@@ -95,3 +93,12 @@ http://liberlocus.blogspot.dk/2013/03/how-to-write-vtk-file-in-parallel.html
 http://vtk.org/gitweb?p=VTK.git;a=blob;f=Examples/DataManipulation/Cxx/RGrid.cxx
 
 !HUSK! At binær data skal skrives som Big Indian. Standard er litle indian. Kun relevant hvis vi selv skriver rutinen.
+
+* Compile on gbar
+
+Set the following.
+
+module load python/2.7.3
+python='pyhton2.7'
+module load VTK/5.10.1
+

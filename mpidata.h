@@ -39,7 +39,9 @@ private:
      If no neighbor the value is MPI_PROC_NULL==-2*/
   int neigh[8];
 
-  /* Sending/receiving buffers */
+  /* Sending/receiving buffers using a array-of-array decleration allowing more compact notation */
+  double *buf[8]; 		/* Array of the 8 pointers which points toward Nbuf, NEbuf... see initBuffer */
+  int lengthBuf[8];		/* Lenghts of the 8 buffers */
   double *Nbuf,*NEbuf,*Ebuf,*SEbuf,*Sbuf,*SWbuf,*Wbuf,*NWbuf;
   int sizeNbuf,sizeNEbuf,sizeEbuf,sizeSEbuf,sizeSbuf,sizeSWbuf,sizeWbuf,sizeNWbuf;
 

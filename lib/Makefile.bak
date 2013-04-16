@@ -1,0 +1,42 @@
+# -*- coding: utf-8; mode: makefile -*-
+
+# source files.
+SRC =  libelement.cpp
+
+OBJ = $(SRC:.cpp=.o)
+
+OUT = libelement.a
+
+# include directories
+INCLUDES = -I. -I../
+
+# C++ compiler flags (-g -O2 -Wall)
+CCFLAGS = -O2
+
+# compiler
+CCC = g++
+
+.SUFFIXES: .cpp
+
+default: dep $(OUT)
+
+.cpp.o:
+	$(CCC) $(INCLUDES) $(CCFLAGS) -c $< -o $@
+
+$(OUT): $(OBJ)
+	ar rcs $(OUT) $(OBJ)
+
+depend: dep
+
+dep:
+	makedepend -- $(CFLAGS) -- $(INCLUDES) $(SRC)
+
+clean:
+	rm -f $(OBJ) $(OUT)
+# DO NOT DELETE
+
+libelement.o: libelement.h ../fedata.h /usr/include/math.h
+libelement.o: /usr/include/features.h ../matrix/CD.c ../matrix/B3.c
+libelement.o: ../matrix/B4.c ../matrix/B5.c ../matrix/B6.c ../matrix/B7.c
+libelement.o: ../matrix/Me3.c ../matrix/Me4.c ../matrix/Me5.c ../matrix/Me6.c
+libelement.o: ../matrix/Me7.c

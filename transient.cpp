@@ -76,32 +76,10 @@ void TransientSolver::ExplicitCDSStep(const double *Ke, const double *KSpring,
 #ifdef MY_MPI
   mpi->communicate(dtilde,true);
   mpi->communicate(vtilde,true);
-  //  mpi->backwardCommunicate(dtilde);
-  //  mpi->backwardCommunicate(vtilde);
 #endif
 
-  //cout << "step1 done" << endl;
 
   /* STEP 2: Solve for Acceleration */
-
-  /* cout << "dof : \n"; */
-
-  /*  int ee = 0; */
-  /* for(int elx=0; elx<mesh->nelx; elx++){ */
-  /*   for(int ely=0; ely<mesh->nely; ely++){ */
-  /*     for(int elz=0; elz<mesh->nelz; elz++){ */
-  /*       for(int i=0; i<mesh->nen*3; i++){ */
-  /*         //dof = mesh->edof[i*mesh->nen*3+ee]; */
-  /*         //cout << mesh->edof[i*mesh->nen*3+ee]  <<"\t"; */
-  /*      dof = mesh->edof[i*mesh->ne+ee]; */
-  /*         cout << "i,e=" << i << "," << ee << "," << mesh->edof[i*mesh->ne+ee]  <<"\n"; */
-  /*       } */
-  /*     ee++; */
-  /*    return; */
-  /*     } */
-  /*   } */
-  /* } */
-  /* cout << "\n ------- DONE --------- \n"; */
 
   /* loop elements, e */
   /* NOTE: OVERVEJ: */
@@ -143,7 +121,6 @@ void TransientSolver::ExplicitCDSStep(const double *Ke, const double *KSpring,
 
 #ifdef MY_MPI
   mpi->communicate(a,false); /* "forward" communication */
-  //  mpi->communicate(a,true); /* "backward" communication -> SHOULD NOT BE NESSECARY*/
 #endif
 
   /* Divide with global mass vector */
@@ -151,28 +128,15 @@ void TransientSolver::ExplicitCDSStep(const double *Ke, const double *KSpring,
     a[i] /= (M[i] + gamma*dt*C[i]);
   }
 
-#ifdef MY_MPI
-  mpi->communicate(a,false); /* "forward" communication */
-  //  mpi->communicate(a,true); /* "backward" communication -> SHOULD NOT BE NESSECARY*/
-#endif
-
-  /* /\* enforce zero aceleration at fixed dofs *\/ */
-  /* for(int i=0; i<mesh->numFixedDofs; i++) */
-  /*   a[ mesh->fixedDofs[i] ] = 0; */
-
-  //cout << "step2 done" << endl;
-
+/* #ifdef MY_MPI */
+/*   mpi->communicate(a,false); /\* "forward" communication *\/ */
+/* #endif */
 
   /* STEP 3: Calculate Displacement and Velocity as Correctors */
   for(int i=0; i<mesh->nn*3; i++){
     d[i] = dtilde[i] + beta*dt*dt*a[i];
     v[i] = vtilde[i] + gamma*dt*a[i];
   }
-
-  //cout << "går ind i explicitCDSStep!" << endl;
-  /* for(int i=0;i < mesh->nn*3; i++){ */
-  /*   cout << "d[" << i << "]=" <<  d[i] << endl; */
-  /* } */
 
 }
 
@@ -182,6 +146,8 @@ void TransientSolver::Solve(void (*ft)(FEMclass*,double*,double,int),
  
   /* Time loop */
   double t = 0;
+  /* How often to save the plot? */
+  int nplot = -1; double t_plot = 0.05;
   for(int it=0; it<NT; it++){
     t = t + dt;
 
@@ -193,22 +159,14 @@ void TransientSolver::Solve(void (*ft)(FEMclass*,double*,double,int),
 #else
     (*ft)(mesh,f,t,it);
 #endif
-    
-    
-    /* //cout << "går ind i explicitCDSStep!" << endl; */
-    /* for(int i=0;i < mesh->nn*3; i++) */
-    /*   cout << "d[0]: " << d[i] << endl; */
 
-    /* Elementwise Explicit Newmark step */
+    /* Explicit Newmark step */
     ExplicitCDSStep(Ke,KSpring,C,M);
-    
-    /* //cout << "går ind i explicitCDSStep!" << endl; */
-    /* for(int i=0;i < mesh->nn*3; i++) */
-    /*   cout << "d1[0]: " << d[i] << endl; */
 
 #ifdef MY_MPI
     /* Save data.... */
-    print_vtk(mesh,mpi,it,d);
+    if(it % (int)ceil(t_plot/dt) == 0 ){nplot++; print_vtk(mesh,mpi,nplot,d);}
+
     /* if( mpi->rank==1 )// mpi->myCoords[0]==floor(mpi->dims[0]/2) && mpi->myCoords[1]==floor(mpi->dims[1]/2) ) */
     /*   print_vtk(mesh,it,d); */
 
@@ -219,18 +177,18 @@ void TransientSolver::Solve(void (*ft)(FEMclass*,double*,double,int),
     }
 #else
     /* Save data.... */
-    print_vtk_serial(mesh,it,d);
+    if(it % (int)ceil(t_plot/dt) == 0 ){nplot++; print_vtk_serial(mesh,nplot,d);}
 
-    if (it % 100 == 0) 
-    cout << "t: " << t << "\t" << "dt: " << dt << ", d[0]=" << d[0] << endl;
+    if (it % 100 == 0)
+      cout << "t: " << t << "\t" << "dt: " << dt << ", d[0]=" << d[0] << endl;
 #endif
 
-  }
-  /* end time loop */
+  } /* end time loop */
+
 
 #ifdef MY_MPI
   /* write .pvd-file: connect all time step */
-  write_pvd(dt,NT);
+  write_pvd(t_plot,nplot);
 #endif
 
 }

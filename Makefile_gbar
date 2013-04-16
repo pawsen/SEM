@@ -1,26 +1,32 @@
 # -*- coding: utf-8; mode: makefile -*-
 
 
+# mpirun -np 2 -mca btl tcp,self SEM_p
+
 par = 1
 ifeq ($(par),1)
 	CC = mpic++
-	SRCS = SEM_parallel.cpp fedata.cpp vtk.cpp aux.cpp transient.cpp mpidata.cpp
+	SRCS = SEM_parallel.cpp fedata.cpp vtk.cpp aux.cpp transient.cpp \
+	gauss_legendre.c mpidata.cpp
 	PROJECT= SEM_p
+	CFLAGS1= -DMY_MPI
 else
  # Serial
 	CC = g++
-	SRCS = SEM_serial.cpp fedata.cpp vtk.cpp aux.cpp transient.cpp
+	SRCS = SEM_parallel.cpp fedata.cpp vtk.cpp aux.cpp transient.cpp \
+	gauss_legendre.c
 	PROJECT= SEM_s
 endif
 
 objects = $(patsubst %.cpp, %.o,$(SRCS))
 LINKFLAGS=
-CFLAGS= -Wno-deprecated -g
+CFLAGS= ${CFLAGS1} -Wno-deprecated -g -O2
 
 ########
 # BLAS #
 ########
-LIBBLAS = -L/usr/lib64/ -lblas
+# /usr/lib64/atlas/libcblas.so
+LIBBLAS = -L/usr/lib64/atlas -lcblas
 INCBLAS = -I/usr/include/
 
 #######
@@ -30,8 +36,8 @@ LIBVTK = -L/appl/VTK/5.10.1/lib/vtk-5.10/ -lvtkCommon -lvtkIO -lvtkFiltering
 INCVTK = -I/appl/VTK/5.10.1/include/vtk-5.10/
 
 
-LIBS= ${LIBVTK} ${LIBBLAS}
-INCLUDE = ${INCVTK} ${INCBLAS}
+LIBS= ${LIBVTK} ${LIBBLAS} -Llib/ -lelement_gbar
+INCLUDE = ${INCVTK} ${INCBLAS} -Ilib/
 
 
 .PHONY: all

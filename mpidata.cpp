@@ -165,8 +165,8 @@ void MPIClass::getNeigh(){
     }
   }
   /* Works! */
-  MPI_Barrier;
-  fflush(stdout);
+  /* MPI_Barrier; */
+  /* fflush(stdout); */
   if (rank < 8){
     cout << "rank: "<< rank << ", neigh: ";
     for(int i=0;i<8;i++){
@@ -206,7 +206,7 @@ void MPIClass::datatype(){
   MPI_Type_hindexed(N, sizes, displacements, MPI_INTEGER, &newType);
   MPI_Type_commit(&newType);
 
-  
+
 }
 
 void MPIClass::datatype_helper(){
@@ -241,53 +241,56 @@ void MPIClass::datatype_helper(){
     ntot = stride*nblock;
     break;
   case E:
-    
+
     break;
   }
 }
 
 void MPIClass::initBuffers(FEMclass* mesh_in){
-  
+
   mesh = mesh_in;
 
   /* init send/receive buffers */
   int nnx = mesh->nnx, nny = mesh->nny, nnz = mesh->nnz;
 
-  sizeNbuf = nnx*nnz*3;
-  Nbuf = new double[sizeNbuf];
-  
-  sizeNEbuf = nnz*3;
-  NEbuf = new double[sizeNEbuf];
+  //buf = new double*[8];
 
-  sizeEbuf = nny*nnz*3;
-  Ebuf = new double[sizeEbuf];
-  
-  sizeSEbuf = nnz*3;
-  SEbuf = new double[sizeSEbuf];
+  lengthBuf[N] = nnx*nnz*3;
+  buf[N] = new double[lengthBuf[N]];
 
-  sizeSbuf = nnx*nnz*3;
-  Sbuf = new double[sizeSbuf];
-  
-  sizeSWbuf = nnz*3;
-  SWbuf = new double[sizeSWbuf];
+  lengthBuf[NE] = nnz*3;
+  buf[NE] = new double[lengthBuf[NE]];
 
-  sizeWbuf = nny*nnz*3;
-  Wbuf = new double[sizeWbuf];
+  lengthBuf[E] = nny*nnz*3;
+  buf[E] = new double[lengthBuf[E]];
 
-  sizeNWbuf = nnz*3;
-  NWbuf = new double[sizeNWbuf];
+  lengthBuf[SE] = nnz*3;
+  buf[SE] = new double[lengthBuf[SE]];
+
+  lengthBuf[S] = nnx*nnz*3;
+  buf[S] = new double[lengthBuf[S]];
+
+  lengthBuf[SW] = nnz*3;
+  buf[SW] = new double[lengthBuf[SW]];
+
+  lengthBuf[W] = nny*nnz*3;
+  buf[W] = new double[lengthBuf[W]];
+
+  lengthBuf[NW] = nnz*3;
+  buf[NW] = new double[lengthBuf[NW]];
+
 }
 
 void MPIClass::fillBuffer(double *data, int face){
 
   //cout << "rank:" << rank << ", fill buffer for face:" << face << endl;
- 
+
   int nnx = mesh->nnx, nny = mesh->nny, nnz = mesh->nnz;
   int iNode,jNode,kNode;
   int ii;
 
   // cout << "rank:" << rank << ", fill face: " << face << endl;
-  
+
   switch(face){
 
   case N:
@@ -296,10 +299,10 @@ void MPIClass::fillBuffer(double *data, int face){
     ii=0;
     for(int i=0; i<mesh->nnx; i++){
       for(int k=0; k<mesh->nnz; k++){
-	Nbuf[ii+0] = data[mesh->n(i,jNode,k)*3 + 0 ];
-	Nbuf[ii+1] = data[mesh->n(i,jNode,k)*3 + 1 ];
-	Nbuf[ii+2] = data[mesh->n(i,jNode,k)*3 + 2 ];
-	ii += 3;
+        buf[N][ii+0] = data[mesh->n(i,jNode,k)*3 + 0 ];
+        buf[N][ii+1] = data[mesh->n(i,jNode,k)*3 + 1 ];
+        buf[N][ii+2] = data[mesh->n(i,jNode,k)*3 + 2 ];
+        ii += 3;
       }
     }
     break;
@@ -310,9 +313,9 @@ void MPIClass::fillBuffer(double *data, int face){
     jNode = 0;
     ii=0;
     for(int k=0; k<mesh->nnz; k++){
-      NEbuf[ii+0] = data[mesh->n(iNode,jNode,k)*3 + 0 ];
-      NEbuf[ii+1] = data[mesh->n(iNode,jNode,k)*3 + 1 ];
-      NEbuf[ii+2] = data[mesh->n(iNode,jNode,k)*3 + 2 ];
+      buf[NE][ii+0] = data[mesh->n(iNode,jNode,k)*3 + 0 ];
+      buf[NE][ii+1] = data[mesh->n(iNode,jNode,k)*3 + 1 ];
+      buf[NE][ii+2] = data[mesh->n(iNode,jNode,k)*3 + 2 ];
       ii += 3;
     }
     break;
@@ -323,10 +326,10 @@ void MPIClass::fillBuffer(double *data, int face){
     ii=0;
     for(int j=0; j<mesh->nny; j++){
       for(int k=0; k<mesh->nnz; k++){
-	Ebuf[ii+0] = data[mesh->n(iNode,j,k)*3 + 0 ];
-	Ebuf[ii+1] = data[mesh->n(iNode,j,k)*3 + 1 ];
-	Ebuf[ii+2] = data[mesh->n(iNode,j,k)*3 + 2 ];
-	ii += 3;
+        buf[E][ii+0] = data[mesh->n(iNode,j,k)*3 + 0 ];
+        buf[E][ii+1] = data[mesh->n(iNode,j,k)*3 + 1 ];
+        buf[E][ii+2] = data[mesh->n(iNode,j,k)*3 + 2 ];
+        ii += 3;
       }
     }
     break;
@@ -337,9 +340,9 @@ void MPIClass::fillBuffer(double *data, int face){
     jNode = mesh->nny-1;
     ii=0;
     for(int k=0; k<mesh->nnz; k++){
-      SEbuf[ii+0] = data[mesh->n(iNode,jNode,k)*3 + 0 ];
-      SEbuf[ii+1] = data[mesh->n(iNode,jNode,k)*3 + 1 ];
-      SEbuf[ii+2] = data[mesh->n(iNode,jNode,k)*3 + 2 ];
+      buf[SE][ii+0] = data[mesh->n(iNode,jNode,k)*3 + 0 ];
+      buf[SE][ii+1] = data[mesh->n(iNode,jNode,k)*3 + 1 ];
+      buf[SE][ii+2] = data[mesh->n(iNode,jNode,k)*3 + 2 ];
       ii += 3;
     }
     break;
@@ -350,10 +353,10 @@ void MPIClass::fillBuffer(double *data, int face){
     ii=0;
     for(int i=0; i<mesh->nnx; i++){
       for(int k=0; k<mesh->nnz; k++){
-	Sbuf[ii+0] = data[mesh->n(i,jNode,k)*3 + 0 ];
-	Sbuf[ii+1] = data[mesh->n(i,jNode,k)*3 + 1 ];
-	Sbuf[ii+2] = data[mesh->n(i,jNode,k)*3 + 2 ];
-	ii += 3;
+        buf[S][ii+0] = data[mesh->n(i,jNode,k)*3 + 0 ];
+        buf[S][ii+1] = data[mesh->n(i,jNode,k)*3 + 1 ];
+        buf[S][ii+2] = data[mesh->n(i,jNode,k)*3 + 2 ];
+        ii += 3;
       }
     }
     break;
@@ -364,23 +367,23 @@ void MPIClass::fillBuffer(double *data, int face){
     jNode = mesh->nny-1;
     ii=0;
     for(int k=0; k<mesh->nnz; k++){
-      SWbuf[ii+0] = data[mesh->n(iNode,jNode,k)*3 + 0 ];
-      SWbuf[ii+1] = data[mesh->n(iNode,jNode,k)*3 + 1 ];
-      SWbuf[ii+2] = data[mesh->n(iNode,jNode,k)*3 + 2 ];
+      buf[SW][ii+0] = data[mesh->n(iNode,jNode,k)*3 + 0 ];
+      buf[SW][ii+1] = data[mesh->n(iNode,jNode,k)*3 + 1 ];
+      buf[SW][ii+2] = data[mesh->n(iNode,jNode,k)*3 + 2 ];
       ii += 3;
     }
     break;
 
   case W:
     /* West: (i,j,k) = (0,j,k) */
-    iNode = 0;    
+    iNode = 0;
     ii=0;
     for(int j=0; j<mesh->nny; j++){
       for(int k=0; k<mesh->nnz; k++){
-	Wbuf[ii+0] = data[mesh->n(iNode,j,k)*3 + 0 ];
-	Wbuf[ii+1] = data[mesh->n(iNode,j,k)*3 + 1 ];
-	Wbuf[ii+2] = data[mesh->n(iNode,j,k)*3 + 2 ];
-	ii += 3;
+        buf[W][ii+0] = data[mesh->n(iNode,j,k)*3 + 0 ];
+        buf[W][ii+1] = data[mesh->n(iNode,j,k)*3 + 1 ];
+        buf[W][ii+2] = data[mesh->n(iNode,j,k)*3 + 2 ];
+        ii += 3;
       }
     }
     break;
@@ -391,20 +394,20 @@ void MPIClass::fillBuffer(double *data, int face){
     jNode = 0;
     ii=0;
     for(int k=0; k<mesh->nnz; k++){
-      NWbuf[ii+0] = data[mesh->n(iNode,jNode,k)*3 + 0 ];
-      NWbuf[ii+1] = data[mesh->n(iNode,jNode,k)*3 + 1 ];
-      NWbuf[ii+2] = data[mesh->n(iNode,jNode,k)*3 + 2 ];
+      buf[NW][ii+0] = data[mesh->n(iNode,jNode,k)*3 + 0 ];
+      buf[NW][ii+1] = data[mesh->n(iNode,jNode,k)*3 + 1 ];
+      buf[NW][ii+2] = data[mesh->n(iNode,jNode,k)*3 + 2 ];
       ii += 3;
     }
     break;
-  
+
   } /* end switch */
 
 }
 
 
 void MPIClass::addBuffer(double *data, int face){
- 
+
   //cout << "rank:" << rank << ", add buffer to face:" << face << endl;
 
   int nnx = mesh->nnx, nny = mesh->nny, nnz = mesh->nnz;
@@ -419,10 +422,10 @@ void MPIClass::addBuffer(double *data, int face){
     ii=0;
     for(int i=0; i<mesh->nnx; i++){
       for(int k=0; k<mesh->nnz; k++){
-	data[mesh->n(i,jNode,k)*3 + 0 ] += Nbuf[ii+0];
-	data[mesh->n(i,jNode,k)*3 + 1 ] += Nbuf[ii+1];
-	data[mesh->n(i,jNode,k)*3 + 2 ] += Nbuf[ii+2];
-	ii += 3;
+        data[mesh->n(i,jNode,k)*3 + 0 ] += buf[N][ii+0];
+        data[mesh->n(i,jNode,k)*3 + 1 ] += buf[N][ii+1];
+        data[mesh->n(i,jNode,k)*3 + 2 ] += buf[N][ii+2];
+        ii += 3;
       }
     }
     break;
@@ -433,9 +436,9 @@ void MPIClass::addBuffer(double *data, int face){
     jNode = 0;
     ii=0;
     for(int k=0; k<mesh->nnz; k++){
-      data[mesh->n(iNode,jNode,k)*3 + 0 ] += NEbuf[ii+0];
-      data[mesh->n(iNode,jNode,k)*3 + 1 ] += NEbuf[ii+1];
-      data[mesh->n(iNode,jNode,k)*3 + 2 ] += NEbuf[ii+2];
+      data[mesh->n(iNode,jNode,k)*3 + 0 ] += buf[NE][ii+0];
+      data[mesh->n(iNode,jNode,k)*3 + 1 ] += buf[NE][ii+1];
+      data[mesh->n(iNode,jNode,k)*3 + 2 ] += buf[NE][ii+2];
       ii += 3;
     }
     break;
@@ -446,10 +449,10 @@ void MPIClass::addBuffer(double *data, int face){
     ii=0;
     for(int j=0; j<mesh->nny; j++){
       for(int k=0; k<mesh->nnz; k++){
-	data[mesh->n(iNode,j,k)*3 + 0 ] += Ebuf[ii+0];
-	data[mesh->n(iNode,j,k)*3 + 1 ] += Ebuf[ii+1];
-	data[mesh->n(iNode,j,k)*3 + 2 ] += Ebuf[ii+2];
-	ii += 3;
+        data[mesh->n(iNode,j,k)*3 + 0 ] += buf[E][ii+0];
+        data[mesh->n(iNode,j,k)*3 + 1 ] += buf[E][ii+1];
+        data[mesh->n(iNode,j,k)*3 + 2 ] += buf[E][ii+2];
+        ii += 3;
       }
     }
     break;
@@ -460,9 +463,9 @@ void MPIClass::addBuffer(double *data, int face){
     jNode = mesh->nny-1;
     ii=0;
     for(int k=0; k<mesh->nnz; k++){
-      data[mesh->n(iNode,jNode,k)*3 + 0 ] += SEbuf[ii+0];
-      data[mesh->n(iNode,jNode,k)*3 + 1 ] += SEbuf[ii+1];
-      data[mesh->n(iNode,jNode,k)*3 + 2 ] += SEbuf[ii+2];
+      data[mesh->n(iNode,jNode,k)*3 + 0 ] += buf[SE][ii+0];
+      data[mesh->n(iNode,jNode,k)*3 + 1 ] += buf[SE][ii+1];
+      data[mesh->n(iNode,jNode,k)*3 + 2 ] += buf[SE][ii+2];
       ii += 3;
     }
     break;
@@ -473,10 +476,10 @@ void MPIClass::addBuffer(double *data, int face){
     ii=0;
     for(int i=0; i<mesh->nnx; i++){
       for(int k=0; k<mesh->nnz; k++){
-	data[mesh->n(i,jNode,k)*3 + 0 ] += Sbuf[ii+0];
-	data[mesh->n(i,jNode,k)*3 + 1 ] += Sbuf[ii+1];
-	data[mesh->n(i,jNode,k)*3 + 2 ] += Sbuf[ii+2];
-	ii += 3;
+        data[mesh->n(i,jNode,k)*3 + 0 ] += buf[S][ii+0];
+        data[mesh->n(i,jNode,k)*3 + 1 ] += buf[S][ii+1];
+        data[mesh->n(i,jNode,k)*3 + 2 ] += buf[S][ii+2];
+        ii += 3;
       }
     }
     break;
@@ -487,23 +490,23 @@ void MPIClass::addBuffer(double *data, int face){
     jNode = mesh->nny-1;
     ii=0;
     for(int k=0; k<mesh->nnz; k++){
-      data[mesh->n(iNode,jNode,k)*3 + 0 ] += SWbuf[ii+0];
-      data[mesh->n(iNode,jNode,k)*3 + 1 ] += SWbuf[ii+1];
-      data[mesh->n(iNode,jNode,k)*3 + 2 ] += SWbuf[ii+2];
+      data[mesh->n(iNode,jNode,k)*3 + 0 ] += buf[SW][ii+0];
+      data[mesh->n(iNode,jNode,k)*3 + 1 ] += buf[SW][ii+1];
+      data[mesh->n(iNode,jNode,k)*3 + 2 ] += buf[SW][ii+2];
       ii += 3;
     }
     break;
 
   case W:
     /* West: (i,j,k) = (0,j,k) */
-    iNode = 0;    
+    iNode = 0;
     ii=0;
     for(int j=0; j<mesh->nny; j++){
       for(int k=0; k<mesh->nnz; k++){
-	data[mesh->n(iNode,j,k)*3 + 0 ] += Wbuf[ii+0];
-	data[mesh->n(iNode,j,k)*3 + 1 ] += Wbuf[ii+1];
-	data[mesh->n(iNode,j,k)*3 + 2 ] += Wbuf[ii+2];
-	ii += 3;
+        data[mesh->n(iNode,j,k)*3 + 0 ] += buf[W][ii+0];
+        data[mesh->n(iNode,j,k)*3 + 1 ] += buf[W][ii+1];
+        data[mesh->n(iNode,j,k)*3 + 2 ] += buf[W][ii+2];
+        ii += 3;
       }
     }
     break;
@@ -514,29 +517,33 @@ void MPIClass::addBuffer(double *data, int face){
     jNode = 0;
     ii=0;
     for(int k=0; k<mesh->nnz; k++){
-      data[mesh->n(iNode,jNode,k)*3 + 0 ] += NWbuf[ii+0];
-      data[mesh->n(iNode,jNode,k)*3 + 1 ] += NWbuf[ii+1];
-      data[mesh->n(iNode,jNode,k)*3 + 2 ] += NWbuf[ii+2];
+      data[mesh->n(iNode,jNode,k)*3 + 0 ] += buf[NW][ii+0];
+      data[mesh->n(iNode,jNode,k)*3 + 1 ] += buf[NW][ii+1];
+      data[mesh->n(iNode,jNode,k)*3 + 2 ] += buf[NW][ii+2];
       ii += 3;
     }
     break;
-  
+
   } /* end switch */
 
- 
+
 
 }
 
 
 void MPIClass::overwriteBuffer(double *data, int face){
 
-  /******************************************************************************************************************************************************/
-  /* A process should only receive from processes with higher ranks, which owns the boundary nodes, when having nodal values overwritten at boundaries. */
-  /* Therefore it is only possible to to receive from E, SE, S neighbours.									        */
-  /* If: no neighbours are apparent to SE and S -> E neighbour owns all the boundary nodes nodes on E plane.           				        */
-  /* Else if: no neighbour is apparent to SE -> S neighbour owns all boundary nodes on S plane.							        */
-  /* Else: SE is apparent and it owns the nodes on the SE corner edge, why these should not be overwritten by S.				        */
-  /******************************************************************************************************************************************************/
+  /****************************************************************************/
+  /* A process should only receive from processes with higher ranks, which owns
+     the boundary nodes, when having nodal values overwritten at boundarie s. */
+  /* Therefore it is only possible to to receive from E, SE, S neighbours.    */
+  /* If: no neighbours are apparent to SE and S -> E neighbour owns all the
+     boundary nodes nodes on E plane. */
+  /* Else if: no neighbour is apparent to SE -> S neighbour owns all boundary
+     nodes on S plane. */
+  /* Else: SE is apparent and it owns the nodes on the SE corner edge, why these
+     should not be overwritten by S. */
+  /***************************************************************************/
 
   //  cout << "rank:" << rank << ", overwrite with buffer on face:" << face << endl;
 
@@ -544,14 +551,14 @@ void MPIClass::overwriteBuffer(double *data, int face){
   int iNode,jNode,kNode;
   int iMax,jMax;
   int ii;
-  
+
   switch(face){
 
   case E:
 
     /* check for SE or S neighbour */
     if( neigh[SE]!=MPI_PROC_NULL && neigh[S]!=MPI_PROC_NULL )
-      jMax = mesh->nny-1; 	/* exclude corner */
+      jMax = mesh->nny-1;   /* exclude corner */
     else
       jMax = mesh->nny;
 
@@ -560,10 +567,10 @@ void MPIClass::overwriteBuffer(double *data, int face){
     ii=0;
     for(int j=0; j<jMax; j++){
       for(int k=0; k<mesh->nnz; k++){
-	data[mesh->n(iNode,j,k)*3 + 0 ] = Ebuf[ii+0];
-	data[mesh->n(iNode,j,k)*3 + 1 ] = Ebuf[ii+1];
-	data[mesh->n(iNode,j,k)*3 + 2 ] = Ebuf[ii+2];
-	ii += 3;
+        data[mesh->n(iNode,j,k)*3 + 0 ] = buf[E][ii+0];
+        data[mesh->n(iNode,j,k)*3 + 1 ] = buf[E][ii+1];
+        data[mesh->n(iNode,j,k)*3 + 2 ] = buf[E][ii+2];
+        ii += 3;
       }
     }
     break;
@@ -574,9 +581,9 @@ void MPIClass::overwriteBuffer(double *data, int face){
     jNode = mesh->nny-1;
     ii=0;
     for(int k=0; k<mesh->nnz; k++){
-      data[mesh->n(iNode,jNode,k)*3 + 0 ] = SEbuf[ii+0];
-      data[mesh->n(iNode,jNode,k)*3 + 1 ] = SEbuf[ii+1];
-      data[mesh->n(iNode,jNode,k)*3 + 2 ] = SEbuf[ii+2];
+      data[mesh->n(iNode,jNode,k)*3 + 0 ] = buf[SE][ii+0];
+      data[mesh->n(iNode,jNode,k)*3 + 1 ] = buf[SE][ii+1];
+      data[mesh->n(iNode,jNode,k)*3 + 2 ] = buf[SE][ii+2];
       ii += 3;
     }
     break;
@@ -585,7 +592,7 @@ void MPIClass::overwriteBuffer(double *data, int face){
 
     /* /\* check for SE neighbour *\/ */
     if( neigh[SE]!=MPI_PROC_NULL )
-      iMax = mesh->nnx-1; 	/* exclude corner */
+      iMax = mesh->nnx-1;   /* exclude corner */
     else
       iMax = mesh->nnx;
 
@@ -594,14 +601,14 @@ void MPIClass::overwriteBuffer(double *data, int face){
     ii=0;
     for(int i=0; i<iMax; i++){
       for(int k=0; k<mesh->nnz; k++){
-	data[mesh->n(i,jNode,k)*3 + 0 ] = Sbuf[ii+0];
-	data[mesh->n(i,jNode,k)*3 + 1 ] = Sbuf[ii+1];
-	data[mesh->n(i,jNode,k)*3 + 2 ] = Sbuf[ii+2];
-	ii += 3;
+        data[mesh->n(i,jNode,k)*3 + 0 ] = buf[S][ii+0];
+        data[mesh->n(i,jNode,k)*3 + 1 ] = buf[S][ii+1];
+        data[mesh->n(i,jNode,k)*3 + 2 ] = buf[S][ii+2];
+        ii += 3;
       }
     }
     break;
-  
+
   } /* end switch */
 
 }
@@ -610,11 +617,9 @@ void MPIClass::overwriteBuffer(double *data, int face){
 
 void MPIClass::communicate(double *data, bool backward){
 
-  /*     overwrite / add : true / false    (replace by enumerator?) */
-
   MPI_Request recReqs[8], sendReqs[8];
   int sendTag = 0;
-  int numRecReqs = 0, numSendReqs = 0; 
+  int numRecReqs = 0, numSendReqs = 0;
 
   for(int face=0; face<8; face++){
 
@@ -624,96 +629,38 @@ void MPIClass::communicate(double *data, bool backward){
 
     if (neigh[face] == MPI_PROC_NULL); /* do nothing */
     else if( (neigh[face] < rank && !backward) || (neigh[face] > rank && backward) ){ // request a receive
+
       numRecReqs++;
 
-      //cout << "rank:" << rank << ", req rec from:" << neigh[face] << ", numRecReqs=" << numRecReqs << endl;
-      
-      switch(face){
-      case N:
-	MPI_Irecv(Nbuf , sizeNbuf , MPI_DOUBLE , neigh[0],MPI_ANY_TAG,comm_cart,&recReqs[0]); /* N */
-	break;
-      case NE:
-	MPI_Irecv(NEbuf, sizeNEbuf, MPI_DOUBLE , neigh[1],MPI_ANY_TAG,comm_cart,&recReqs[1]); /* NE */
-	break;
-      case E:
-	MPI_Irecv(Ebuf , sizeEbuf , MPI_DOUBLE , neigh[2],MPI_ANY_TAG,comm_cart,&recReqs[2]); /* E */
-	break;
-      case SE:
-	MPI_Irecv(SEbuf, sizeSEbuf, MPI_DOUBLE , neigh[3],MPI_ANY_TAG,comm_cart,&recReqs[3]); /* SE */
-	break;
-      case S:
-	MPI_Irecv(Sbuf , sizeSbuf , MPI_DOUBLE , neigh[4],MPI_ANY_TAG,comm_cart,&recReqs[4]); /* S */
-	break;
-      case SW:
-	MPI_Irecv(SWbuf, sizeSWbuf, MPI_DOUBLE , neigh[5],MPI_ANY_TAG,comm_cart,&recReqs[5]); /* SW */
-	break;
-      case W:
-	MPI_Irecv(Wbuf , sizeWbuf , MPI_DOUBLE , neigh[6],MPI_ANY_TAG,comm_cart,&recReqs[6]); /* W */
-	break;
-      case NW:
-	MPI_Irecv(NWbuf, sizeNWbuf, MPI_DOUBLE , neigh[7],MPI_ANY_TAG,comm_cart,&recReqs[7]); /* NW */
-	break;
-      }
+      MPI_Irecv(&buf[face][0],lengthBuf[face],MPI_DOUBLE,neigh[face],MPI_ANY_TAG,comm_cart,&recReqs[face]);
 
     } /* end else if */
-    else{ // request a send
-      numSendReqs++;
-      fillBuffer(data,face); 	/* fill only relevant buffers for relevatn faces */
-       
-      //cout << "rank:" << rank << ", req send to:" << neigh[face] << endl;
 
-      switch(face){
-      case N:
-	MPI_Isend(Nbuf , sizeNbuf , MPI_DOUBLE , neigh[0],sendTag,comm_cart,&sendReqs[0]); /* N */
-	break;
-      case NE:
-	MPI_Isend(NEbuf, sizeNEbuf, MPI_DOUBLE , neigh[1],sendTag,comm_cart,&sendReqs[1]); /* NE */
-	break;
-      case E:
-	MPI_Isend(Ebuf , sizeEbuf , MPI_DOUBLE , neigh[2],sendTag,comm_cart,&sendReqs[2]); /* E */
-	break;
-      case SE:
-	MPI_Isend(SEbuf, sizeSEbuf, MPI_DOUBLE , neigh[3],sendTag,comm_cart,&sendReqs[3]); /* SE */
-	break;
-      case S:
-	MPI_Isend(Sbuf , sizeSbuf , MPI_DOUBLE , neigh[4],sendTag,comm_cart,&sendReqs[4]); /* S */
-	break;
-      case SW:
-	MPI_Isend(SWbuf, sizeSWbuf, MPI_DOUBLE , neigh[5],sendTag,comm_cart,&sendReqs[5]); /* SW */
-	break;
-      case W:
-	MPI_Isend(Wbuf , sizeWbuf , MPI_DOUBLE , neigh[6],sendTag,comm_cart,&sendReqs[6]); /* W */
-	break;
-      case NW:
-	MPI_Isend(NWbuf, sizeNWbuf, MPI_DOUBLE , neigh[7],sendTag,comm_cart,&sendReqs[7]); /* NW */
-	break;
-      }
+    else{ // request a send
+
+      numSendReqs++;
+
+      fillBuffer(data,face);    /* fill only buffers for relevant faces */
+
+      MPI_Isend(&buf[face][0],lengthBuf[face],MPI_DOUBLE,neigh[face],sendTag,comm_cart,&sendReqs[face]);
 
     } /*  end else */
+
   }   /* end for */
 
   // Receive data from other procs
   int i, numRec = 0;
   while(numRec<numRecReqs){
- 
+
     numRec++; // increment number of receipts completede
 
     MPI_Waitany(8,recReqs,&i,MPI_STATUS_IGNORE); /* i is index of the completed receipt */
-    
-    /* if (i==MPI_UNDEFINED) */
-    /*   cout << "rank:" << rank << ", completed rec with MPI_UNDEFINED" << endl; */
-    /* else */
-    /*   cout << "rank:" << rank << ", completed rec index=" << i << endl; */
 
     if(backward)
-      overwriteBuffer(data,i); /* overwrite vector by received contributions while waiting */ 
+      overwriteBuffer(data,i); /* overwrite vector by received contributions while waiting */
     else
       addBuffer(data,i); /* add received contributions to vector while waiting */
 
-    
-
-    //cout << "rank:" << rank << ", finished addBuffer " << endl;
-
   }
-  
+
 }

@@ -1,5 +1,4 @@
 double t3,t4,t5,t6,t7,t8,t9,t10,t11,t12,t13;
-double ;
 
 t3 = rho * lx * ly * lz;
 t4 = t3 / 0.8000e4;

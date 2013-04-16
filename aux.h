@@ -12,7 +12,5 @@ void matmul(double alpha, double* A,double* B, double beta,double* C,
 
 
 void construct_Ke(MATPROPclass *mat,FEMclass *mesh,double *Ke);
-void construct_B(double x, double y, double z,FEMclass *mesh, double *BB);
-void construct_CD(MATPROPclass *mat, double *CCD);
 void construct_Me(MATPROPclass *mat,FEMclass *mesh,double *M);
 #endif

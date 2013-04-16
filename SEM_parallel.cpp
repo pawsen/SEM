@@ -38,18 +38,15 @@ extern "C" {
 #include <mpi.h>
 #endif
 
-#include <assert.h>
-#include <typeinfo>
-
 #include <iostream>
 using namespace std;
 
+double min3(double x,double y,double z);
 /* Force function */
 double ricker(double t, double f0, double to);
 
 /* Set nodal force */
 void NodalForce(double* F, int node, int dof, double val);
-
 void ForceUpdater(FEMclass* mesh, double* F, double t, int it);
 
 int main(int argc, char *argv[]) {
@@ -91,7 +88,9 @@ int main(int argc, char *argv[]) {
   /**********************************************/
   /* STEP 1: Initialize local mesh and material */
   /**********************************************/
-  int ngll=3, gaussPoints = 4;
+  int ngll= 5;
+  int gaussPoints = 4;
+  cout << "ngll: " << ngll << ", gauss points: "  << gaussPoints << endl ;
   FEMclass mesh(nelx,nely,nelz,lx,ly,lz,offsetX,offsetY,ngll,gaussPoints);
   /* e, nu, thk, rho; */
   MATPROPclass mat(10000,0.0,1,1);
@@ -101,6 +100,8 @@ int main(int argc, char *argv[]) {
   /* share mesh with mpi and init send/recv buffers*/
   mpi.initBuffers(&mesh);
 #endif
+
+
 
   /**************************/
   /* STEP 2: INITIALIZATION */
@@ -165,7 +166,6 @@ int main(int argc, char *argv[]) {
   mpi.communicate(M,false);
 #endif
 
-  
   //  MPI_Finalize();
   //return 1;
 
@@ -191,8 +191,9 @@ int main(int argc, char *argv[]) {
   /* STEP 3: Explicit time stepping */
   /**********************************/
   double CLF = 0.6;
-  
-  double dt = CLF*mesh.dlx/(mesh.ngll+1)/mat.vs;
+
+  double min_dx = min3(mesh.dlx,mesh.dly,mesh.dlz);
+  double dt = CLF*min_dx/(mesh.ngll+1)/mat.vs;
   dt *= 0.5;
   /* Total integration time */
   double T = 2*Ft0;
@@ -254,4 +255,11 @@ void ForceUpdater(FEMclass* mesh,double* F,double t,int it){
   /* Apply force in z-direction */
   NodalForce(F,center_node,2,ricker(t,Ff0,Ft0));  
  
+}
+
+double min3(double x, double y, double z){
+  if (x < y)
+    if (x < z) return x;
+  if (y < z) return y;
+  return z;
 }

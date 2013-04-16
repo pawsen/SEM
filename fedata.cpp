@@ -4,6 +4,7 @@
 #include "fedata.h"
 #include <math.h>
 #include <string.h>
+#include "gauss_legendre.h"
 #include <iostream>
 using namespace std;
 
@@ -19,6 +20,7 @@ FEMclass::FEMclass(int i1, int i2, int i3,
   ngll = i4; nInt = i5;
   /* set other variables */
   tot_nodes();
+  set_intPoints();
   set_gll();
   set_coor();
   set_Ke();
@@ -85,20 +87,67 @@ void FEMclass::set_coor_helper(double *xx, double dxx,int nelxx, double offset){
   xx[idx] = dxx*nelxx + offset;// = lxx
 }
 
+void FEMclass::set_intPoints(){
+  /* Numerical integration points and weights. Gauss points in this case */
+
+  intPoints = new double[nInt+1];
+  w=new double[nInt+1];
+  /* precision */
+  double eps = 1e-10;
+  /* returns points*/
+  int m = (nInt+1)>>1;
+  gauss_legendre_tbl(nInt,intPoints,w,eps);
+
+
+  /* set the negative points(weights are always positive) */
+  /* Notice that when nPoints is odd, the center point is zero( saved as the
+     first element in intPoints). This value should not be transferred.
+     The values are stored i increasing order. Then the negative values in
+     decreasing order.*/
+  /* Compare with values from this table */
+  /* http://pomax.github.io/bezierinfo/legendre-gauss.html */
+  int n = nInt/2;
+  int off = 0;
+  if(nInt % 2  == 1){
+    /* x is odd */
+    n = (nInt-1)/2; off = 1;
+  }
+  for(int i=0;i<n;i++){
+    intPoints[i+m] = -intPoints[i+off];
+    w[i+m] = w[i+off];
+  }
+
+  /* cout << "intP: " << "\n"; */
+  /* for(int i=0;i<nInt;i++){ */
+  /*   cout << intPoints[i] << ", "; */
+  /* } */
+  /* cout << "\n"; */
+  /* cout << "intW: " << "\n"; */
+  /* for(int i=0;i<nInt;i++){ */
+  /*   cout << w[i] << ", "; */
+  /* } */
+  /* cout << "\n"; */
+
+}
+
+
 void FEMclass::set_gll(){// (double *gll,double *w,int ngll){
-  /* get gll-points and weights*/
+  /* get gll-points and weights(not used)*/
+
+  /* Not for numerical integration. Use Gauss Legendre points instead, since
+     this integration is more precise.*/
 
   /* gll points for plotting */
   gll=new double[ngll];
   double *tmp = new double[ngll];
-  /* numerical integration points and weights */
-  intPoints = new double[nInt];
-  w=new double[nInt];
-
   get_points(ngll,gll,tmp);
-  get_points(nInt,intPoints,w);
-
   delete[] tmp;
+
+  /* numerical GLL integration points and weights */
+  /* intPoints = new double[nInt]; */
+  /* w=new double[nInt]; */
+  /* get_points(nInt,intPoints,w); */
+
 }
 
 
@@ -151,39 +200,11 @@ if(npoints % 2  == 1){
  }
 for(int i=0;i<n;i++){
   point[i] = -point[npoints-1-i];
-  weight[i] = w[npoints-1-i];
+  weight[i] = weight[npoints-1-i];
  }
 }
 
-/* SELECT CASE ( ng ) */
-/*  case (1) */
-/*   w = 2.0 */
-/*   xi = 0.0 */
-/*   eta =xi */
-/*  case (2) */
-/*   w = 1.0 */
-/*   xi(1) = -3.0**(-0.5) */
-/*   xi(2) = 3.0**(-0.5) */
-/*   eta = xi */
-/*  case (3) */
-/*   w(1) = 5.0/9.0 */
-/*   w(2) = 8.0/9.0 */
-/*   w(3) = 5.0/9.0 */
-/*   xi(1) = -0.6**(0.5) */
-/*   xi(2) = 0.0 */
-/*   xi(3) = 0.6**(0.5) */
-/*   eta = xi */
-/*  case (4)   */
-/*   w(1) = (18.0+dsqrt(30d0))/36.0 */
-/*   w(2) = (18.0+dsqrt(30d0))/36.0 */
-/*   w(3) = (18.0-dsqrt(30d0))/36.0 */
-/*   w(4) = (18.0-dsqrt(30d0))/36.0 */
-/*   xi(1) = dsqrt((3d0-2d0*dsqrt(6d0/5d0))/7d0) */
-/*   xi(2) = -dsqrt((3d0-2d0*dsqrt(6d0/5d0))/7d0) */
-/*   xi(3) = dsqrt((3d0+2d0*dsqrt(6d0/5d0))/7d0) */
-/*   xi(4) = -dsqrt((3d0+2d0*dsqrt(6d0/5d0))/7d0) */
-/*   eta = xi */
-// http://www.holoborodko.com/pavel/numerical-methods/numerical-integration/#gauss_quadrature_abscissas_table
+
 void FEMclass::set_edof(){
 
   /* initialize edof mat */

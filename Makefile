@@ -34,8 +34,8 @@ LIBVTK = -L/usr/lib/ -lvtkCommon -lvtkIO -lvtkFiltering
 INCVTK = -I/usr/include/vtk-5.8
 
 
-LIBS= ${LIBVTK} ${LIBBLAS}
-INCLUDE = ${INCVTK} ${INCBLAS}
+LIBS= ${LIBVTK} ${LIBBLAS} -Llib/ -lelement
+INCLUDE = ${INCVTK} ${INCBLAS} -Ilib/
 
 
 .PHONY: all
