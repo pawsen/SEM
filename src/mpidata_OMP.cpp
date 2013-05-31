@@ -4,6 +4,7 @@
 #include <math.h>
 #include <iostream>
 using namespace std;
+#include <omp.h>
 
 MPIClass::MPIClass (int argc, char **argv,DataStruct *data_in){
 
@@ -19,7 +20,27 @@ void MPIClass::initMPI(int argc, char **argv){
   /* STEP 0: Initialize MPI */
   /**************************/
 
+#ifdef MY_OMP
+  /* initialise thread count. Two ways:
+   * hard-coded:
+     omp_set_num_threads(2);
+   * Can also be done by (for bash)
+     export OMP_NUM_THREADS=4 */
+  // omp_set_num_threads(2); 
+  int dummy=0;
+  MPI_Init_thread(&argc, &argv,MPI_THREAD_FUNNELED,&dummy);
+  int nThreads;
+
+#pragma omp parallel private(nThreads)
+  {
+#pragma omp master
+    {
+      cout << "nThreads: " << omp_get_num_threads() << endl;
+    }
+  }
+#else
   MPI_Init(&argc,&argv);
+#endif
   MPI_Comm_rank(MPI_COMM_WORLD, &rank); //my rank
   MPI_Comm_size(MPI_COMM_WORLD, &size); //proc size
 
@@ -64,8 +85,9 @@ void MPIClass::partitioning(){
   /* Local dimensions of mesh */
   int dny = gnely % nProcy;   /* remainder of mesh partitioning along x-axis */
   int dnx = gnelx % nProcx;   /* remainder of mesh partitioning along y-axis */
-  int nelx = ceil(gnelx/nProcx);
-  int nely = ceil(gnely/nProcy);
+  /* must be floor not ceil here, to conserve total number of of elements */
+  int nelx = floor(gnelx/nProcx);
+  int nely = floor(gnely/nProcy);
   int nelz = gnelz;
 
   /* Determine cartesian coords of this process */
@@ -85,7 +107,7 @@ void MPIClass::partitioning(){
   int ly = gly/nProcy;
   data->outDouble[0] = lx;/* lx */
   data->outDouble[1] = ly; /* ly */
-  data->outDouble[2] = glz;        /* lz */
+  data->outDouble[2] = glz; /* lz */
   data->outInt[0] = nelx;
   data->outInt[1] = nely;
   data->outInt[2] = nelz;
@@ -93,17 +115,6 @@ void MPIClass::partitioning(){
   /* Mesh offset in x/y direction */
   offsetX = myCoords[1] * lx;
   offsetY = myCoords[0] * ly;
-  /* cout << "myCoorX: "  << myCoords[1] << ", offsetX: " << offsetX */
-  /*      << ", myCoorY: "  << myCoords[0] << ", offsetY: " << offsetY << endl; */
-  /* if (myCoords[0] < dny) */
-  /*   offsetY = myCoords[0]* (nely+1); */
-  /* else */
-  /*   offsetY = myCoords[0]*nely+dny; */
-
-  /* if (myCoords[1] < dnx) */
-  /*   offsetX = myCoords[1]* (nelx+1); */
-  /* else */
-  /*   offsetX = myCoords[1]*nelx+dnx; */
 
   if(rank == 0 ){
     cout << "rank: " << rank << ", lx,ly,lz: ";
@@ -121,40 +132,35 @@ void MPIClass::partitioning(){
 
 void MPIClass::getNeigh(){
 
-  /* Determine neighbour procs.
+  /* Determine neighbour procs:
+
      Each proc, must send to "dest" to and receive from "src".
      Out-of-range procs will result in MPI_PROC_NULL when shifting
      outside domain and not using periodicity.
-  */
-  /*
-    Sending to MPI_PROC_NULL(integer = -2) result in:
-    A communication with process MPI_PROC_NULL has no effect. A send to
-    MPI_PROC_NULL succeeds and returns as soon as possible. A receive from
-    MPI_PROC_NULL succeeds and returns as soon as possible with no
-    modifications to the receive buffer
-  */
-  /*
-    So for nodes on the boundary, we need to determine the Out-of-range
-    coordinates manually, since MPI_Cart_rank return:
 
-    Out-of-range coordinates are erroneous for non-periodic dimensions. Versions
-    of MPICH before 1.2.2 returned MPI_PROC_NULL for the rank in this case.
-    Newer versions abort execution.
+     Sending to MPI_PROC_NULL(integer = -2) result in:
 
+     A communication with process MPI_PROC_NULL has no effect. A send to
+     MPI_PROC_NULL succeeds and returns as soon as possible. A receive from
+     MPI_PROC_NULL succeeds and returns as soon as possible with no
+     modifications to the receive buffer
+
+     So for nodes on the boundary, we need to determine the Out-of-range
+     coordinates manually, since MPI_Cart_rank return:
+
+     Out-of-range coordinates are erroneous for non-periodic dimensions. Versions
+     of MPICH before 1.2.2 returned MPI_PROC_NULL for the rank in this case.
+     Newer versions abort execution.
   */
 
   int tmpCoord[2];
-  /* {N,NE,E,SE,S, SW,W,NW} */
+  /* {N,NE,E,SE,S,SW,W,NW} */
   int tmpCoord1[8] = {-1,-1,0,1, 1, 1, 0,-1};
   int tmpCoord2[8] = { 0, 1,1,1, 0,-1,-1,-1};
 
   for(int i=0;i<8;i++){
     tmpCoord[0] = myCoords[0] + tmpCoord1[i];
     tmpCoord[1] = myCoords[1] + tmpCoord2[i];
-
-    if (rank == 0){
-      // cout << tmpCoord[i] << " " << tmpCoord[1] << " | ";
-    }
 
     if(tmpCoord[0]<0){ neigh[i]=MPI_PROC_NULL; }
     else if(tmpCoord[0]>(dims[0]-1)){ neigh[i]=MPI_PROC_NULL; }
@@ -177,74 +183,6 @@ void MPIClass::getNeigh(){
 
 }
 
-void MPIClass::datatype(){
-
-
-  /**************************************************/
-  /* Get displacement of each arrays starting point */
-  /**************************************************/
-  /* http://stackoverflow.com/a/2655363/1121523 */
-
-  int N=10;            // number of arrays (first dimension)
-  int sizes[N];     // number of elements in each array (second dimensions)
-  int* arrays[N];   // pointers to the start of each array
-  /* Get starting point */
-  MPI_Aint base;
-  MPI_Address(arrays[0], &base);
-
-  /* Get displacement */
-  MPI_Aint* displacements = new MPI_Aint[N];
-  for (int i=0; i<N; ++i){
-    /* Brug MPI_Get_address i stedet.
-       http://mpi.deino.net/mpi_functions/MPI_Get_address.html */
-    MPI_Address(arrays[i], &displacements[i]);
-    displacements[i] -= base;
-  }
-
-  /* construct data type */
-  MPI_Datatype newType;
-  MPI_Type_hindexed(N, sizes, displacements, MPI_INTEGER, &newType);
-  MPI_Type_commit(&newType);
-
-
-}
-
-void MPIClass::datatype_helper(){
-  int node, stride, nblock,ntot,iNode,jNode,kNode;
-  int nnx = mesh->nnx, nny = mesh->nny, nnz = mesh->nnz;
-
-  /* These two are the in/out of plane. And are not communicated */
-  /* Z-top */
-  /* DOF =  nnx*nny*(nnz-1)*3..nnx*nny*nnz*3-1 */
-  /* Z-bottom */
-  /* DOF =  0..(nnx*nny)*3 -1*/
-
-  int orientation = N;
-  switch(orientation){
-  case N:
-
-    /* North - xz plane for y=nny-1 */
-    jNode = nny -1;    /* REMEMBER! zero based */
-    /* All x-dofs */
-    for(int i=0;i<nnx-1;i++){
-      for(int k=0;k<nnz-1;k++){
-        node = mesh->n(i,jNode,k)*3;
-      }
-    }
-    /* first x-dof */
-    node = mesh->n(0,jNode,0)*3;
-    /* stride,  eg. length of continuous block */
-    stride = nnx*3;
-    /* number of blocks */
-    nblock = nnz;
-    /* total number of DOF's to be send */
-    ntot = stride*nblock;
-    break;
-  case E:
-
-    break;
-  }
-}
 
 void MPIClass::initBuffers(FEMclass* mesh_in){
 
@@ -283,13 +221,9 @@ void MPIClass::initBuffers(FEMclass* mesh_in){
 
 void MPIClass::fillBuffer(double *data, int face){
 
-  //cout << "rank:" << rank << ", fill buffer for face:" << face << endl;
-
   int nnx = mesh->nnx, nny = mesh->nny, nnz = mesh->nnz;
   int iNode,jNode,kNode;
   int ii;
-
-  // cout << "rank:" << rank << ", fill face: " << face << endl;
 
   switch(face){
 
@@ -407,8 +341,6 @@ void MPIClass::fillBuffer(double *data, int face){
 
 
 void MPIClass::addBuffer(double *data, int face){
-
-  //cout << "rank:" << rank << ", add buffer to face:" << face << endl;
 
   int nnx = mesh->nnx, nny = mesh->nny, nnz = mesh->nnz;
   int iNode,jNode,kNode;
@@ -533,17 +465,22 @@ void MPIClass::addBuffer(double *data, int face){
 
 void MPIClass::overwriteBuffer(double *data, int face){
 
-  /****************************************************************************/
-  /* A process should only receive from processes with higher ranks, which owns
-     the boundary nodes, when having nodal values overwritten at boundarie s. */
-  /* Therefore it is only possible to to receive from E, SE, S neighbours.    */
-  /* If: no neighbours are apparent to SE and S -> E neighbour owns all the
-     boundary nodes nodes on E plane. */
-  /* Else if: no neighbour is apparent to SE -> S neighbour owns all boundary
-     nodes on S plane. */
-  /* Else: SE is apparent and it owns the nodes on the SE corner edge, why these
-     should not be overwritten by S. */
-  /***************************************************************************/
+  /************************************************************************/
+  /* A process should only receive from processes with higher ranks,      */
+  /* which owns the boundary nodes, when having nodal values overwritten  */
+  /* at boundaries.                                                       */
+  /*                                                                      */
+  /* Therefore it is only possible to receive from E, SE, S neighbours.   */
+  /* If:                                                                  */
+  /*   no neighbours are apparent to SE and S -> E neighbour owns all the */
+  /*   boundary nodes on E plane.                                         */
+  /* Else if:                                                             */
+  /*   no neighbour is apparent to SE -> S neighbour owns all boundary    */
+  /*   nodes on S plane.                                                  */
+  /* Else:                                                                */
+  /*   SE is apparent and it owns the nodes on the SE corner edge, why    */
+  /*   these should not be overwritten by S.                              */
+  /************************************************************************/
 
   //  cout << "rank:" << rank << ", overwrite with buffer on face:" << face << endl;
 
@@ -590,7 +527,7 @@ void MPIClass::overwriteBuffer(double *data, int face){
 
   case S:
 
-    /* /\* check for SE neighbour *\/ */
+    /* check for SE neighbour */
     if( neigh[SE]!=MPI_PROC_NULL )
       iMax = mesh->nnx-1;   /* exclude corner */
     else
@@ -612,7 +549,6 @@ void MPIClass::overwriteBuffer(double *data, int face){
   } /* end switch */
 
 }
-
 
 
 void MPIClass::communicate(double *data, bool backward){
@@ -650,17 +586,223 @@ void MPIClass::communicate(double *data, bool backward){
 
   // Receive data from other procs
   int i, numRec = 0;
-  while(numRec<numRecReqs){
+  //while(numRec<numRecReqs){
+  MPI_Waitall(8,recReqs,MPI_STATUS_IGNORE);
 
-    numRec++; // increment number of receipts completede
+  numRec++; // increment number of receipts completede
 
-    MPI_Waitany(8,recReqs,&i,MPI_STATUS_IGNORE); /* i is index of the completed receipt */
+  //MPI_Waitany(8,recReqs,&i,MPI_STATUS_IGNORE); /* i is index of the completed receipt */
+  for(int face=0;face<8;face++){
 
-    if(backward)
-      overwriteBuffer(data,i); /* overwrite vector by received contributions while waiting */
-    else
-      addBuffer(data,i); /* add received contributions to vector while waiting */
 
+    if (neigh[face] == MPI_PROC_NULL); /* do nothing */
+    else if( (neigh[face] < rank && !backward) || (neigh[face] > rank && backward) ){ // request a receive
+      if(backward)
+        overwriteBuffer(data,face); /* overwrite vector by received contributions while waiting */
+      else
+        addBuffer(data,face); /* add received contributions to vector while waiting */
+    }
+  }
+  MPI_Waitall(8,sendReqs,MPI_STATUS_IGNORE);
+
+}
+
+
+void MPIClass::communicate_paw(double *data,MPI_Datatype *DType, bool backward){
+
+  MPI_Request recReqs[8], sendReqs[8];
+  int sendTag = 0;
+  int numRecReqs = 0, numSendReqs = 0;
+
+  for(int face=0; face<8; face++){
+
+    /* Default should be null request */
+    recReqs[face] = MPI_REQUEST_NULL;
+    sendReqs[face] = MPI_REQUEST_NULL;
+
+    if (neigh[face] == MPI_PROC_NULL); /* do nothing */
+    else if( (neigh[face] < rank && !backward) || (neigh[face] > rank && backward) ){ // request a receive
+
+      numRecReqs++;
+
+      MPI_Irecv(&buf[face][0],lengthBuf[face],MPI_DOUBLE,neigh[face],MPI_ANY_TAG,comm_cart,&recReqs[face]);
+
+    } /* end else if */
+
+    else{ // request a send
+
+      numSendReqs++;
+      MPI_Isend(&data,1,DType[face],neigh[face],
+                sendTag,comm_cart,&sendReqs[face]);
+
+    } /*  end else */
+
+  }   /* end for */
+
+  // Receive data from other procs
+  int i, numRec = 0;
+  //while(numRec<numRecReqs){
+  MPI_Waitall(8,recReqs,MPI_STATUS_IGNORE);
+
+  numRec++; // increment number of receipts completede
+
+  //MPI_Waitany(8,recReqs,&i,MPI_STATUS_IGNORE); /* i is index of the completed receipt */
+  for(int face=0;face<8;face++){
+
+
+    if (neigh[face] == MPI_PROC_NULL); /* do nothing */
+    else if( (neigh[face] < rank && !backward) || (neigh[face] > rank && backward) ){ // request a receive
+      if(backward)
+        overwriteBuffer(data,face); /* overwrite vector by received contributions while waiting */
+      else
+        addBuffer(data,face); /* add received contributions to vector while waiting */
+    }
+  }
+  MPI_Waitall(8,sendReqs,MPI_STATUS_IGNORE);
+
+}
+
+
+void MPIClass::datatype_construct(double *d,double *v,double *a){
+
+   dbuf = new MPI_Datatype[8];
+   vbuf = new MPI_Datatype[8];
+   abuf = new MPI_Datatype[8];
+   datatype_construct2(dbuf,d);
+   datatype_construct2(vbuf,v);
+   datatype_construct2(abuf,a);
+}
+
+void MPIClass::datatype_construct2(MPI_Datatype *DType,double *data){
+
+
+  /**************************************************/
+  /* Get displacement of each arrays starting point */
+  /**************************************************/
+  /* http://stackoverflow.com/a/2655363/1121523 */
+  /* MPI_Datatype *DType = new MPI_Datatype[8]; */
+
+  /* Get starting point of vector */
+  MPI_Aint base;
+  int id;
+
+  int firstDOF,stride,distBlocks,nblocks;
+  for(int face=0;face<8;face++){
+    datatype_helper(face,firstDOF,stride,distBlocks,nblocks );
+
+    /* Get starting point of vector */
+    MPI_Get_address(&data[firstDOF], &base);
+    /* Get displacement */
+    MPI_Aint* displacements = new MPI_Aint[nblocks];
+    int* stride_vec = new int[nblocks];
+
+    /* cout << mesh->nnz <<  ", nblocks: "  << nblocks <<  ", cpu: " << rank << ", base: "<< base << endl; */
+    for (int i=0; i<nblocks; ++i){
+      /* Brug MPI_Get_address i stedet.
+         http://mpi.deino.net/mpi_functions/MPI_Get_address.html */
+      id = firstDOF + distBlocks*i;
+      MPI_Get_address(&data[id], &displacements[i]);
+      // cout << displacements[i] << " , " << base << endl;
+      displacements[i] -= base;
+      /* All blocks have the same length/stride */
+      stride_vec[i] = stride;
+    }
+
+    /* construct data type */
+    MPI_Type_hindexed(N, stride_vec, displacements, MPI_DOUBLE, &DType[face]);
+    MPI_Type_commit(&DType[face]);
+    delete[] displacements; delete[] stride_vec;
   }
 
+}
+
+void MPIClass::datatype_helper(int face, /*in */
+                               int &firstDOF, int &stride, int &distBlock,
+                               int &nblock ){
+  // int firstDOF, distBlocks, stride, nblock;
+  int ntot,iNode,jNode,kNode;
+  int nnx = mesh->nnx, nny = mesh->nny, nnz = mesh->nnz;
+
+  /* These two are the in/out of plane. And are not communicated */
+  /* Z-top */
+  /* DOF =  nnx*nny*(nnz-1)*3..nnx*nny*nnz*3-1 */
+  /* Z-bottom */
+  /* DOF =  0..(nnx*nny)*3 -1*/
+
+  switch(face){
+  case N:
+    /* North - xz plane for y=nny-1 */
+    jNode = nny -1;    /* REMEMBER! zero based */
+    /* first x-dof */
+    firstDOF = mesh->n(0,jNode,0)*3;
+    /* stride,  eg. length of continuous block */
+    stride = nnx*3;
+    /* number of blocks */
+    nblock = nnz;
+    /* dist(DOF's) between blocks */
+    distBlock = mesh->n(0,jNode,1)*3 - firstDOF;
+    /* total number of DOF's to be send */
+    ntot = stride*nblock;
+    break;
+  case NE:
+    iNode = mesh->nnx-1;
+    jNode = mesh->nny-1;
+    firstDOF = mesh->n(iNode,jNode,0)*3;
+    stride = 3;
+    nblock = nnz;
+    distBlock = mesh->n(iNode,jNode,1)*3 - firstDOF;
+    ntot = stride*nblock;
+    break;
+  case E:
+    iNode = mesh->nnx-1;
+    firstDOF = mesh->n(iNode,0,0)*3;
+    stride = 3;
+    nblock = nny*nnz;
+    distBlock = mesh->n(iNode,1,0)*3 - firstDOF;
+    ntot = stride*nblock;
+    break;
+  case SE:
+    iNode = mesh->nnx-1;
+    jNode = 0;
+    firstDOF = mesh->n(iNode,jNode,0)*3;
+    stride = 3;
+    nblock = nnz;
+    distBlock = mesh->n(iNode,jNode,1)*3 - firstDOF;
+    ntot = stride*nblock;
+    break;
+  case S:
+    jNode = 0;
+    firstDOF = mesh->n(0,jNode,0)*3;
+    stride = nnx*3;
+    nblock = nnz;
+    distBlock = mesh->n(0,jNode,1)*3 - firstDOF;
+    ntot = stride*nblock;
+    break;
+  case SW:
+    iNode = 0;
+    jNode = 0;
+    firstDOF = mesh->n(iNode,jNode,0)*3;
+    stride = 3;
+    nblock = nnz;
+    distBlock = mesh->n(iNode,jNode,1)*3 - firstDOF;
+    ntot = stride*nblock;
+    break;
+  case W:
+    iNode = 0;
+    firstDOF = mesh->n(iNode,0,0)*3;
+    stride = 3;
+    nblock = nny*nnz;
+    distBlock = mesh->n(iNode,1,0)*3 - firstDOF;
+    ntot = stride*nblock;
+    break;
+  case NW:
+    iNode = 0;
+    jNode = nny-1;
+    firstDOF = mesh->n(iNode,jNode,0)*3;
+    stride = 3;
+    nblock = nnz;
+    distBlock = mesh->n(iNode,jNode,1)*3 - firstDOF;
+    ntot = stride*nblock;
+    break;
+  }
 }

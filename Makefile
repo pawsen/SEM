@@ -5,19 +5,19 @@
 par = 1
 ifeq ($(par),1)
 	CC = mpic++
-	SRCS = SEM_parallel.cpp fedata.cpp vtk.cpp aux.cpp transient.cpp \
-	gauss_legendre.c mpidata.cpp
+    MPISRC= mpidata.cpp
 	PROJECT= SEM_p
-	CFLAGS1= -DMY_MPI
+	CFLAGS1= -DMY_MPI -DMY_OVERLAP
 else
  # Serial
 	CC = g++
-	SRCS = SEM_parallel.cpp fedata.cpp vtk.cpp aux.cpp transient.cpp \
-	gauss_legendre.c
 	PROJECT= SEM_s
 endif
 
-objects = $(patsubst %.cpp, %.o,$(SRCS))
+SRCS= SEM_parallel.cpp fedata.cpp vtk.cpp aux.cpp transient.cpp \
+	${MPISRC}
+SRCS_C= gauss_legendre.c
+objects= $(patsubst %.cpp, %.o,$(SRCS)) $(patsubst %.c, %.o,$(SRCS_C))
 LINKFLAGS=
 CFLAGS= ${CFLAGS1} -Wno-deprecated -g -O2
 
@@ -40,7 +40,7 @@ INCLUDE = ${INCVTK} ${INCBLAS} -Ilib/
 
 .PHONY: all
 all:${PROJECT}
-	$(shell etags $(SRCS))
+	$(shell cd src; etags $(SRCS) $(SRCS_C))
 
 #$(shell ctags -Re)
 
@@ -51,6 +51,10 @@ ${PROJECT}: $(objects)
 
 
 %.o: %.cpp
+	$(CC) $(INCLUDE) $(CFLAGS) -c $< -o $@
+%.o: src/%.cpp
+	$(CC) $(INCLUDE) $(CFLAGS) -c $< -o $@
+%.o: src/%.c
 	$(CC) $(INCLUDE) $(CFLAGS) -c $< -o $@
 
 

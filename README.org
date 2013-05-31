@@ -5,6 +5,8 @@
 Spectral methods for FEM
 
 ** Install and compile
+Short:
+sudo apt-get install libvtk5-dev libblas-dev mpic++
 *** vtk
 Install headers and libraries for C++:
 sudo apt-get install libvtk5-dev
@@ -37,7 +39,6 @@ http://www.netlib.org/clapack/readme
 
 *** Call fortran files from C/C++
 http://www.math.utah.edu/software/c-with-fortran.html
-
 
 * Debugging MPI
 
@@ -78,15 +79,6 @@ Look [[http://stackoverflow.com/a/14838973/1121523][here]] for a technical descr
 
 http://packages.ubuntu.com/source/quantal/vtk
 
-Dette er vidst ikke xml!
-http://www.vtk.org/doc/nightly/html/classvtkWriter.html
-http://www.vtk.org/doc/nightly/html/classvtkRectilinearGridWriter.html
-
-Brug denne i stedet.Kan også bruges med MPI.
-http://www.vtk.org/doc/nightly/html/annotated.html
-http://www.vtk.org/doc/nightly/html/classvtkXMLRectilinearGridWriter.html#details
-http://www.vtk.org/doc/nightly/html/classvtkXMLPRectilinearGridWriter.html
-
 MPI:
 http://liberlocus.blogspot.dk/2013/03/how-to-write-vtk-file-in-parallel.html
 
@@ -101,4 +93,23 @@ Set the following.
 module load python/2.7.3
 python='pyhton2.7'
 module load VTK/5.10.1
+
+Path to libraries on gbar
+########
+# BLAS #
+########
+LIBBLAS = -L/appl/htopopt/RH61/atlas-3.9.49/lib/  -lcblas  -latlas
+INCBLAS = -I/appl/htopopt/RH61/atlas-3.9.49/include/
+
+#######
+# VTK #
+#######
+LIBVTK = -L/appl/VTK/5.10.1/lib/vtk-5.10/ -lvtkCommon -lvtkIO -lvtkFiltering
+INCVTK = -I/appl/VTK/5.10.1/include/vtk-5.10/
+
+* For profiling
+
+module load:
+studio/12u3b mpi/studio
+
 

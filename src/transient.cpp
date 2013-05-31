@@ -165,7 +165,7 @@ void TransientSolver::Solve(void (*ft)(FEMclass*,double*,double,int),
 
 #ifdef MY_MPI
     /* Save data.... */
-    if(it % (int)ceil(t_plot/dt) == 0 ){nplot++; print_vtk(mesh,mpi,nplot,d);}
+    //if(it % (int)ceil(t_plot/dt) == 0 ){nplot++; print_vtk(mesh,mpi,nplot,d);}
 
     /* if( mpi->rank==1 )// mpi->myCoords[0]==floor(mpi->dims[0]/2) && mpi->myCoords[1]==floor(mpi->dims[1]/2) ) */
     /*   print_vtk(mesh,it,d); */

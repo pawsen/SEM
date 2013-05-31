@@ -1,0 +1,25 @@
+Oracle Studio Analyzer:
+
+In addition to serial and multi-thread profiling (OpenMP, Pthreads), the
+latest versions of the Studio Analyzer support MPI profiling as well.
+
+The best way to obtain an MPI profile is to run collect from the command
+line (the GUI interface doesn't work, at least in the versions installed
+on the DTU systems):
+
+collect -M <MPI_version> mpirun -np <N> -- ./program
+
+where MPI_version can be OpenMPI or CT8.1, N is the number of processors
+you want to use, and program is your MPI program.  Please note the '--'
+in the command - this is mandatory to indicate where the options to
+mpirun end.
+
+
+Useful articles:
+
+Profiling MPI Applications:
+http://docs.oracle.com/cd/E24457_01/html/E22002/index.html
+
+Oracle White Paper: 
+"Examine MPI Applications with the Oracle Solaris Studio Performance Analyzer"
+http://www.oracle.com/technetwork/server-storage/solarisstudio/documentation/oss-performance-analyzer-177582.pdf

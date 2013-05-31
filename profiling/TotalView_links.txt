@@ -1,0 +1,34 @@
+TotalView: 
+
+TotaView is the state-of-the-art debugger in HPC environments, and it is
+capable of debugging parallel applications, both MPI and OpenMP.  It is
+even possible to debug hybrid-parallel programs, i.e. MPI and OpenMP
+mixed.  
+
+There is also support for CUDA debugging.
+
+DTU has a campus license for Linux, which is available to all machines
+on the DTU network.
+
+For students, DTU has an agreement with RogueWave (the company behind
+TotalView), that DTU students can particpate in the TotalView Student
+Express program, i.e. students can get a TotalView license for their own
+computer.  If you are interested in that, please send me an e-mail with
+you name, study-number and expected end of your studies.  I will then
+send this information to RogueWave, and they will issue a licencse for
+you.
+
+
+Useful links 
+
+User's Guide:
+http://www.roguewave.com/documents.aspx?entryid=451&command=core_download
+
+Knowledge base:
+http://www.roguewave.com/support/knowledge-base/totalview-tips.aspx
+
+LLNL TotalView Tutorial:
+https://computing.llnl.gov/tutorials/totalview/
+https://computing.llnl.gov/tutorials/totalview/exercise.html
+
+

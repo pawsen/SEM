@@ -1,23 +1,24 @@
 # -*- coding: utf-8; mode: makefile -*-
 
+
 # mpirun -np 2 -mca btl tcp,self SEM_p
 
 par = 1
 ifeq ($(par),1)
 	CC = mpic++
-	MPISRC = mpidata.cpp
+	SRCS = SEM_parallel.cpp fedata.cpp vtk.cpp aux.cpp transient.cpp \
+	gauss_legendre.c mpidata.cpp
 	PROJECT= SEM_p
 	CFLAGS1= -DMY_MPI
 else
  # Serial
 	CC = g++
+	SRCS = SEM_parallel.cpp fedata.cpp vtk.cpp aux.cpp transient.cpp \
+	gauss_legendre.c
 	PROJECT= SEM_s
 endif
 
-SRCS= SEM_parallel.cpp fedata.cpp vtk.cpp aux.cpp transient.cpp \
-	${MPISRC}
-SRCS_C= gauss_legendre.c
-objects= $(patsubst %.cpp, %.o,$(SRCS)) $(patsubst %.c, %.o,$(SRCS_C))
+objects = $(patsubst %.cpp, %.o,$(SRCS))
 LINKFLAGS=
 CFLAGS= ${CFLAGS1} -Wno-deprecated -g -O2
 
@@ -25,8 +26,8 @@ CFLAGS= ${CFLAGS1} -Wno-deprecated -g -O2
 # BLAS #
 ########
 # /usr/lib64/atlas/libcblas.so
-LIBBLAS = -L/appl/htopopt/RH61/atlas-3.9.49/lib/  -lcblas  -latlas
-INCBLAS = -I/appl/htopopt/RH61/atlas-3.9.49/include/
+LIBBLAS = -L/usr/lib64/atlas -lcblas
+INCBLAS = -I/usr/include/
 
 #######
 # VTK #
@@ -35,13 +36,13 @@ LIBVTK = -L/appl/VTK/5.10.1/lib/vtk-5.10/ -lvtkCommon -lvtkIO -lvtkFiltering
 INCVTK = -I/appl/VTK/5.10.1/include/vtk-5.10/
 
 
-LIBS= ${LIBVTK} ${LIBBLAS} -Llib/ -lelement_gbar
-INCLUDE = ${INCVTK} ${INCBLAS} -Ilib/
+LIBS= ${LIBVTK} ${LIBBLAS}
+INCLUDE = ${INCVTK} ${INCBLAS}
 
 
 .PHONY: all
 all:${PROJECT}
-	$(shell cd src; etags $(SRCS) $(SRCS_C))
+	$(shell etags $(SRCS))
 
 #$(shell ctags -Re)
 
@@ -52,10 +53,6 @@ ${PROJECT}: $(objects)
 
 
 %.o: %.cpp
-	$(CC) $(INCLUDE) $(CFLAGS) -c $< -o $@
-%.o: src/%.cpp
-	$(CC) $(INCLUDE) $(CFLAGS) -c $< -o $@
-%.o: src/%.c
 	$(CC) $(INCLUDE) $(CFLAGS) -c $< -o $@
 
 

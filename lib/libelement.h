@@ -2,7 +2,7 @@
 #ifndef LIBELEMENT_H
 #define LIBELEMENT_H
 
-#include "../fedata.h"
+#include "../src/fedata.h"
 
 void construct_CD(MATPROPclass *mat, double *CCD);
 void construct_B3(double x, double y, double z,FEMclass *mesh, double *BB);

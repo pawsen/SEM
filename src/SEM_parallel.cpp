@@ -16,8 +16,8 @@
 
 
 /* Use extern C to tell the C++ compiler that the included library is compiled
-  with C and not C++
-  http://stackoverflow.com/a/67930/1121523 */
+   with C and not C++
+   http://stackoverflow.com/a/67930/1121523 */
 extern "C" {
 #include <cblas.h>
   //#include <atlas/cblas.h>
@@ -32,7 +32,6 @@ extern "C" {
 #include "fedata.h"
 #include "vtk.h"
 #include "aux.h"
-#include "transient.h"
 #ifdef MY_MPI
 #include "mpidata.h"
 #include <mpi.h>
@@ -44,27 +43,19 @@ using namespace std;
 double min3(double x,double y,double z);
 /* Force function */
 double ricker(double t, double f0, double to);
-
 /* Set nodal force */
 void NodalForce(double* F, int node, int dof, double val);
-void ForceUpdater(FEMclass* mesh, double* F, double t, int it);
 
 int main(int argc, char *argv[]) {
 
   /* Global dimensions of mesh */
-  int gnelx=12,gnely=12,gnelz=2;
-  double glx=12,gly=12,glz=2;
+  int gnelx=47,gnely=47,gnelz=2;
+  double glx=10,gly=10,glz=2;
+
 
   /***********************************/
   /* STEP 0: Initialize and setup MPI */
   /***********************************/
-
-
-  /* Dette er ikke så godt. Jeg forestiller mig at mpi klassen får  gnel* og
-     gl* ind. Men ikke som herunder. I stedet via fedata. Dvs gnel* og gl* er
-     på een eller anden måde initialiseret i fedata.h. Men hvordan? For den
-     rigtige constructor i fedata.h kan først kaldes når mpi klassen er kørt og
-     derved har bestemt lokale data.*/
 
   double lx,ly,lz, offsetX = 0, offsetY = 0;
   int nelx,nely,nelz;
@@ -79,18 +70,18 @@ int main(int argc, char *argv[]) {
   lx = data.outDouble[0]; ly = data.outDouble[1];  lz = data.outDouble[2];
   nelx = data.outInt[0];  nely = data.outInt[1];  nelz = data.outInt[2];
   offsetX = mpi.offsetX; offsetY = mpi.offsetY;
+
 #else
   lx = glx; ly = gly; lz = glz;
   nelx = gnelx; nely = gnely; nelz = gnelz;
 #endif
 
 
+
   /**********************************************/
   /* STEP 1: Initialize local mesh and material */
   /**********************************************/
-  int ngll= 5;
-  int gaussPoints = 4;
-  cout << "ngll: " << ngll << ", gauss points: "  << gaussPoints << endl ;
+  int ngll=4, gaussPoints = 4;
   FEMclass mesh(nelx,nely,nelz,lx,ly,lz,offsetX,offsetY,ngll,gaussPoints);
   /* e, nu, thk, rho; */
   MATPROPclass mat(10000,0.0,1,1);
@@ -100,7 +91,6 @@ int main(int argc, char *argv[]) {
   /* share mesh with mpi and init send/recv buffers*/
   mpi.initBuffers(&mesh);
 #endif
-
 
 
   /**************************/
@@ -131,16 +121,6 @@ int main(int argc, char *argv[]) {
   construct_Ke(&mat,&mesh, Ke);
   construct_Me(&mat,&mesh, Me);
 
-/* int tmp = sizeKe; */
-/*   cout << "K-mat: " << endl; */
-/*   for(int ii=0;ii<10;ii++){ */
-/*     for(int jj=0;jj<8;jj++){ */
-/*       cout << Ke[ii*tmp+jj] << "\t"; */
-/*     } */
-/*     cout << endl; */
-/*   } */
-/*   return 1; */
-
   /* Local(but for all elements on the proc) mass vector with contribution from
      neighboring nodes */
   /* Because M^-1 ≠ ∑Me^-1 */
@@ -155,7 +135,6 @@ int main(int argc, char *argv[]) {
     for(int n=0; n<mesh.nen*3; n++){
       // global index of the considered dof of the element
       dof = mesh.edof[n*mesh.ne+e];
-      /* cout << dof << "\t"; */
       M[dof] += Me[n];
     }
   }
@@ -166,9 +145,6 @@ int main(int argc, char *argv[]) {
   mpi.communicate(M,false);
 #endif
 
-  //  MPI_Finalize();
-  //return 1;
-
   /* MASS PROP. DAMPING:
      C=αM+βK, ξ=0.5(α/ω+βω)
      Choosing ξ=0.01 at ω=2π*f0
@@ -178,7 +154,6 @@ int main(int argc, char *argv[]) {
   for(int i=0; i<mesh.nn*3; i++)
     C[i] = alpha*M[i];
 
-
   /* Add springs to all dofs at (x,y,z=0) */
   double k_spring = mat.e/100; /* default spring stiffness */
   double *KSpring = new double[mesh.nn*3]; /* global vector of spring stiffnesses */
@@ -186,31 +161,150 @@ int main(int argc, char *argv[]) {
   for(int i=0; i<mesh.nnx*mesh.nny*3; i++)
     KSpring[i] = k_spring;
 
-
   /**********************************/
   /* STEP 3: Explicit time stepping */
   /**********************************/
-  double CLF = 0.6;
 
-  double min_dx = min3(mesh.dlx,mesh.dly,mesh.dlz);
-  double dt = CLF*min_dx/(mesh.ngll+1)/mat.vs;
-  dt *= 0.5;
-  /* Total integration time */
-  double T = 2*Ft0;
-  int NT = ceil(T/dt);
-  
-  // CFL = 0.6; % stability number = CFL_1D / sqrt(2);
-  // dt = CFL*min([lx,ly,lz])/(NGLL+1)/vs;
+  /* Counter, used to see if each process is doing the same number of operations */
+  unsigned long int count = 0;
 
-  /* Create timestep object */
-  TransientSolver ExplicitSolver(&mesh,dt,NT);
+  /* Newmark parameters */
+  double gamma = 0.5;
+
+  /* Determine time step size */
+  double CLF  = 0.6;
+  double dt   = CLF*mesh.dlx/(mesh.ngll+1)/mat.vs;
+  dt         *= 0.5;
+  double T    = 2*Ft0; /* Total integration time */
+  int NT      = ceil(T/dt);
+
+  /* Initialize kinematic fields and force vector... */
+  double *d      = new double[(mesh.nn)*3];
+  double *dtilde = new double[(mesh.nn)*3];
+  double *v      = new double[(mesh.nn)*3];
+  double *vtilde = new double[(mesh.nn)*3];
+  double *a      = new double[(mesh.nn)*3];
+  double *f      = new double[(mesh.nn)*3];
+
+  /* ... and set to 0 */
+  memset(d,0,sizeof(double)*mesh.nn*3);
+  memset(dtilde,0,sizeof(double)*mesh.nn*3);
+  memset(v,0,sizeof(double)*mesh.nn*3);
+  memset(vtilde,0,sizeof(double)*mesh.nn*3);
+  memset(a,0,sizeof(double)*mesh.nn*3);
+  memset(f,0,sizeof(double)*mesh.nn*3);
+
+  /* Determine center node */
+  int nx_half = floor(mesh.nnx/2);
+  int ny_half = floor(mesh.nny/2);
+  int nz_half = floor(mesh.nnz/2);
+  int center_node = mesh.n(nx_half,ny_half,nz_half);
+  /* How often to save the plot? */
+  int nplot = -1; double t_plot = 0.05;
+  bool save_plot = true;
+
 #ifdef MY_MPI
-ExplicitSolver.transferMPI(&mpi);
+  /* Overlapping communications */
+  MPI_Request recReqs[8], sendReqs[8];
+
+  /* MPI-timing */
+  MPI_Barrier(MPI_COMM_WORLD);
+  double t1,t2;
+  if(mpi.rank == 0){
+    t1 = MPI_Wtime();
+    printf("Number of steps, NT: %d \n",NT);
+    printf("Number of real steps, NT: %d \n",(int)ceil(T/dt));
+  }
 #endif
- ExplicitSolver.Solve(ForceUpdater,Ke,KSpring,C,M);
+
+
+  /************************/
+  /* Time stepping begins */
+  /************************/
+  double t = 0;
+  for(int it=0; it<NT; it++){
+    t = t + dt;
+
+    /* Update force */
+#ifdef MY_MPI
+    /* Find center domain */
+    if( mpi.myCoords[0]==floor(mpi.dims[0]/2) && mpi.myCoords[1]==floor(mpi.dims[1]/2) ){
+      /* Apply force in z-direction at center node */
+      NodalForce(f,center_node,2,ricker(t,Ff0,Ft0));
+    }
+#else
+    /* Apply force in z-direction at center node */
+    NodalForce(f,center_node,2,ricker(t,Ff0,Ft0));
+#endif
+
+    /* Elementwise Explicit Newmark step */
+#ifdef MY_OVERLAP
+#include "overlap.cpp"
+#else
+    /* Also for serial execution */
+#include "noOverlap.cpp"
+#endif
+
+    if((mpi.rank==0)&&(it%100==0))
+      cout << "step:" << it << endl;
+
+    if(save_plot){
+#ifdef MY_MPI
+    /* Save data.... */
+    if(it % (int)ceil(t_plot/dt) == 0 ){nplot++; print_vtk(&mesh,&mpi,nplot,d);}
+#else
+    if(it % (int)ceil(t_plot/dt) == 0 ){nplot++; print_vtk_serial(&mesh,nplot,d);}
+#endif
+    } /* end save */
+  }  /* end time loop */
 
 #ifdef MY_MPI
+  MPI_Barrier(MPI_COMM_WORLD);
+
+  /* Register final time */
+  if(mpi.rank==0){
+    /* write .pvd-file: connect all time step */
+    write_pvd(t_plot,nplot);
+    t2 = MPI_Wtime();
+
+  }
+
+  /* SUM counters on rank 0 of global communicator*/
+  unsigned long int countTotal=0;
+  MPI_Reduce(&count,&countTotal,1,MPI::UNSIGNED_LONG,MPI_SUM,0,MPI_COMM_WORLD);
+
+  /* Set time-filename according to jobname when running on HPC*/
+  char filename1[30];
+  if (argc != 2){
+    /* A filename was not passed to the program */
+    sprintf(filename1,"");
+  }else
+    strcpy(filename1, argv[1]);
+
+  /* Write output */
+  if(mpi.rank==0){
+    char filename[30];
+    sprintf(filename,"stout/timing%s.txt",filename1);
+
+    FILE * pFile; // print time to file
+    pFile = fopen (filename,"a"); // append
+    fprintf (pFile, "%i \t %i \t %i \t %i \t %i \t %e \t %lu \n",mpi.size,gnelx,gnely,gnelz,NT,t2-t1,countTotal);
+    printf ( "nProcs: %i, gnelx: %i, gnely: %i, gnelz: %i , NT: %i, Time: %e, totCount: %lu \n",mpi.size,gnelx,gnely,gnelz,NT,t2-t1,countTotal);
+    fclose (pFile);
+
+  }
+
+  /* /\* Print the number of "operations" of this proc to file *\/ */
+  /* FILE * pFile1; // print time to file */
+  /* char fName[100]; */
+  /* sprintf(fName,"stout/numOp_rank%i%s.txt",mpi.rank,filename1); */
+  /* pFile1 = fopen (fName,"a"); // append */
+  /* fprintf (pFile1, "%i \t %i \t %lu \n",mpi.rank,mpi.size,count); */
+  /* printf ( "myRank: %i, nProcs: %i, count: %lu \n",mpi.rank,mpi.size,count); */
+  /* fclose (pFile1); */
+
   MPI_Finalize();
+
 #endif
 
   return 1;
@@ -229,7 +323,7 @@ double ricker(double t, double f0, double t0){
 
 }
 
-/* Apply nodal force function */
+/* Used to to apply a nodal force */
 void NodalForce(double* F, int node, int dof, double val){
   // *F = pointer to force array
   // node = global node number
@@ -237,24 +331,6 @@ void NodalForce(double* F, int node, int dof, double val){
   // val = force value
   F[ node*3+dof ] = val;
 
-}
-
-/* Force function */
-void ForceUpdater(FEMclass* mesh,double* F,double t,int it){
-
-  /* det er selvfølgeligt lidt uheldigt at det skal hardcodes her igen.. */
-  double Ff0 = 0.25;
-  double Ft0 = 1.5/Ff0;
-
-  /* center node */
-  int nx_half = floor(mesh->nnx/2);
-  int ny_half = floor(mesh->nny/2);
-  int nz_half = floor(mesh->nnz/2);
-  int center_node = mesh->n(nx_half,ny_half,nz_half);
-
-  /* Apply force in z-direction */
-  NodalForce(F,center_node,2,ricker(t,Ff0,Ft0));  
- 
 }
 
 double min3(double x, double y, double z){

@@ -169,6 +169,14 @@ void print_vtk(FEMclass* mesh, MPIClass *mpi, int step, double *vec){
   /* Overvej selv at skrive vtu-filerne. */
   /* http://stackoverflow.com/questions/10913666/error-writing-binary-vtk-files */
 
+  /* create new directory/test for existence */
+  char dirname [30];
+  int n = sprintf(dirname,"plots/");
+  struct stat st = {0};
+  if (stat(dirname, &st) == -1) {
+    mkdir(dirname, 0700);
+  }
+
   vtkSmartPointer<vtkRectilinearGrid>
     rgrid = vtkSmartPointer<vtkRectilinearGrid>::New();
   set_structure(mesh,rgrid );
